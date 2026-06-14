@@ -2,7 +2,7 @@
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { Handle, Position, type NodeProps } from '@vue-flow/core'
 import { NodeResizer, type OnResize } from '@vue-flow/node-resizer'
-import type { DiagramNodeData, NodeColor } from '@/types/diagram'
+import type { DiagramNodeData, NodeColor, StrokeStyle, StrokeWidth } from '@/types/diagram'
 import { useDiagramStore } from '@/stores/diagram'
 
 const props = defineProps<NodeProps<DiagramNodeData>>()
@@ -11,6 +11,10 @@ const store = useDiagramStore()
 const editing = ref(false)
 const draft = ref('')
 const inputRef = ref<HTMLInputElement | null>(null)
+// Briefly true for nodes that were just created via the palette / draw —
+// drives the Excalidraw-style scale-in animation. Stays unset for nodes
+// restored from a snapshot or recreated by undo/redo, so those don't pop.
+const justCreated = ref(false)
 
 interface ColorStyle {
   fill: string
@@ -64,25 +68,53 @@ const palette = computed(() => colorStyles[props.data.color])
 
 // Text nodes are pure labels — no fill, no border, no handles.
 const connectable = computed(() => shape.value !== 'text')
-const hasTarget = computed(() => connectable.value && props.data.variant !== 'input')
-const hasSource = computed(() => connectable.value && props.data.variant !== 'output')
+
+// Four handles, one per side. In ConnectionMode.Loose any handle can act as
+// source OR target, so the user can drag an edge from any side of any node
+// and drop it on any side of any other node — Excalidraw/Miro style.
+const sideHandles = [
+  { id: 'top', position: Position.Top, cls: 'handle-top' },
+  { id: 'right', position: Position.Right, cls: 'handle-right' },
+  { id: 'bottom', position: Position.Bottom, cls: 'handle-bottom' },
+  { id: 'left', position: Position.Left, cls: 'handle-left' },
+] as const
+
+// Literal lookup maps (UnoCSS only generates classes it can scan as static
+// strings — building these via template interpolation wouldn't work).
+const STROKE_WIDTH_CLASS: Record<StrokeWidth, string> = {
+  thin: 'border',
+  medium: 'border-2',
+  thick: 'border-4',
+}
+
+const STROKE_STYLE_CLASS: Record<StrokeStyle, string> = {
+  solid: 'border-solid',
+  dashed: 'border-dashed',
+  dotted: 'border-dotted',
+}
 
 // Per-shape background classes (includes a `shape-*` hook used by sketch CSS).
 const shapeClasses = computed(() => {
   const c = palette.value
+  const transparent = props.data.fillStyle === 'transparent'
+  const sw = STROKE_WIDTH_CLASS[props.data.strokeWidth]
+  const ss = STROKE_STYLE_CLASS[props.data.strokeStyle]
   switch (shape.value) {
     case 'ellipse':
-      return ['shape-ellipse', 'border-2 rounded-[50%]', c.fill, c.border]
+      return ['shape-ellipse', 'rounded-[50%]', sw, ss, transparent ? '' : c.fill, c.border]
     case 'diamond':
-      return ['shape-diamond', 'border-2 rotate-45 rounded-lg', c.fill, c.border]
+      return ['shape-diamond', 'rotate-45 rounded-lg', sw, ss, transparent ? '' : c.fill, c.border]
     case 'sticky':
-      return ['shape-sticky', 'rounded-md shadow-lg', c.sticky]
+      // Sticky has no border in its solid look; "transparent" hides the fill.
+      return ['shape-sticky', 'rounded-md shadow-lg', transparent ? '' : c.sticky]
     case 'text':
       return ['shape-text', 'border-0 bg-transparent']
     default:
-      return ['shape-rectangle', 'border-2 rounded-xl', c.fill, c.border]
+      return ['shape-rectangle', 'rounded-xl', sw, ss, transparent ? '' : c.fill, c.border]
   }
 })
+
+const opacityValue = computed(() => props.data.opacity / 100)
 
 const labelClasses = computed(() => {
   if (shape.value === 'sticky') return `${palette.value.sticky} bg-transparent dark:bg-transparent`
@@ -131,20 +163,27 @@ function cancelEditing() {
   editing.value = false
 }
 
-// A just-created node opens straight into editing so you can type its name.
+// A just-created node opens straight into editing so you can type its name,
+// and plays a brief scale-in animation.
 onMounted(() => {
-  if (store.takeEditNode(props.id)) startEditing()
+  if (store.takeEditNode(props.id)) {
+    justCreated.value = true
+    startEditing()
+  }
 })
 </script>
 
 <template>
   <div
     class="relative flex h-full w-full items-center justify-center"
+    :class="{ 'node-pop': justCreated }"
     title="Double-click to edit"
     @dblclick.stop="startEditing"
   >
+    <!-- Suppress the resize frame on text shapes while typing — otherwise its
+         line / corner squares look like a box around the text. -->
     <NodeResizer
-      v-if="props.selected"
+      v-if="props.selected && !(shape === 'text' && editing)"
       :min-width="60"
       :min-height="36"
       :node-id="props.id"
@@ -152,16 +191,42 @@ onMounted(() => {
       @resize="onResize"
     />
 
-    <Handle v-if="hasTarget" type="target" :position="Position.Top" class="diagram-handle" />
+    <template v-if="connectable">
+      <Handle
+        v-for="h in sideHandles"
+        :key="h.id"
+        :id="h.id"
+        type="source"
+        :position="h.position"
+        :class="['handle-side', h.cls]"
+      />
+    </template>
 
-    <!-- The drawn shape (fill / border) sits behind the label. -->
+    <!-- The drawn shape (fill / border) sits behind the label. The dashed
+         text-selection outline is suppressed while editing so typing feels
+         box-less. -->
     <div
       class="diagram-shape absolute inset-0 transition-shadow duration-150"
-      :class="[...shapeClasses, props.selected ? 'is-selected' : '']"
+      :class="[
+        ...shapeClasses,
+        props.selected && !(shape === 'text' && editing) ? 'is-selected' : '',
+      ]"
+      :style="{ opacity: opacityValue }"
     />
 
-    <!-- Label overlay, always upright (even on a rotated diamond). -->
-    <div class="relative z-10 flex max-w-full flex-col items-center px-3 py-1.5 text-center">
+    <!-- Label overlay, always upright (even on a rotated diamond).
+         Text shapes use zero padding + auto-width so the typed content drives
+         the node's footprint (Excalidraw-style); all other shapes get the
+         usual centred padded label. -->
+    <div
+      class="relative z-10 flex flex-col"
+      :class="
+        shape === 'text'
+          ? 'items-start'
+          : 'max-w-full items-center px-3 py-1.5 text-center'
+      "
+      :style="{ opacity: opacityValue }"
+    >
       <span
         v-if="variantBadge"
         class="mb-0.5 text-[10px] font-semibold uppercase tracking-wider opacity-60"
@@ -175,20 +240,29 @@ onMounted(() => {
         ref="inputRef"
         v-model="draft"
         type="text"
-        class="w-full rounded-md border border-indigo-300 bg-white/90 px-1.5 py-0.5 text-center text-sm font-semibold text-slate-900 outline-none focus:border-indigo-500 dark:bg-slate-900/90 dark:text-slate-100"
+        :size="shape === 'text' ? Math.max(draft.length || 4, 4) : undefined"
+        class="text-sm font-semibold outline-none"
+        :class="[
+          labelClasses,
+          shape === 'text'
+            // Borderless / transparent so typing a text shape feels like
+            // writing directly on the canvas — no input box around it.
+            // `size` attribute drives width so the input grows with content.
+            ? 'border-0 bg-transparent px-0 py-0 text-left'
+            : 'w-full rounded-md border border-indigo-300 bg-white/90 px-1.5 py-0.5 text-center text-slate-900 focus:border-indigo-500 dark:bg-slate-900/90 dark:text-slate-100',
+        ]"
         @keydown.enter.prevent="commitEditing"
         @keydown.esc.prevent="cancelEditing"
         @blur="commitEditing"
       />
       <div
         v-else
-        class="min-h-[1.25rem] cursor-text select-none break-words text-sm font-semibold leading-snug"
-        :class="labelClasses"
+        class="cursor-text select-none break-words text-sm font-semibold leading-snug"
+        :class="[labelClasses, shape === 'text' ? '' : 'min-h-[1.25rem]']"
       >
         {{ props.data.label }}
       </div>
     </div>
 
-    <Handle v-if="hasSource" type="source" :position="Position.Bottom" class="diagram-handle" />
   </div>
 </template>

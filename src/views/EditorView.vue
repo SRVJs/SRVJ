@@ -15,10 +15,15 @@ const { init: initSketchMode } = useSketchMode()
 // Register global Delete / Ctrl+Z / Ctrl+A keyboard shortcuts.
 useKeyboardShortcuts()
 
+// Restore the saved diagram synchronously, before DiagramCanvas mounts —
+// so Vue Flow's `fit-view-on-init` sees the loaded nodes immediately and
+// doesn't fire later when the user creates their first shape (which would
+// otherwise auto-zoom onto that single node).
+persistence.load()
+
 onMounted(() => {
   initDarkMode()
   initSketchMode()
-  persistence.load() // restore previously saved diagram (if any)
   persistence.start() // begin debounced auto-save
 })
 </script>

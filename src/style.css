@@ -22,6 +22,25 @@ body,
   height: 100%;
 }
 
+/* --------------------------------------------- New-node "pop" animation --- */
+/* Excalidraw-style brief scale-in on freshly created shapes. Subtle overshoot
+   easing for a tactile feel; runs once on mount. */
+.node-pop {
+  transform-origin: center;
+  animation: node-pop 180ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes node-pop {
+  from {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 /* ------------------------------------------------------------------ Nodes -- */
 
 .diagram-shape {
@@ -51,25 +70,62 @@ body,
   border-radius: 4px;
 }
 
-/* Connection handles. */
-.diagram-handle {
-  width: 11px;
-  height: 11px;
-  background: #6366f1;
-  border: 2px solid #fff;
-  border-radius: 9999px;
+/* Connection handles — one small dot per side. Hidden until the node is
+   hovered or selected, and pointer events only fire when the cursor is on
+   the dot itself, so clicks on the node body (and on the resize handles
+   near the edge) don't accidentally start a connection drag. */
+.handle-side {
+  width: 12px !important;
+  height: 12px !important;
+  background: #6366f1 !important;
+  border: 2px solid #fff !important;
+  border-radius: 9999px !important;
+  opacity: 0;
+  pointer-events: none;
   transition:
+    opacity 0.12s ease,
     transform 0.12s ease,
     background 0.12s ease;
+  z-index: 6;
 }
 
-.dark .diagram-handle {
-  border-color: #0f172a;
+.dark .handle-side {
+  border-color: #0f172a !important;
 }
 
-.diagram-handle:hover {
-  transform: scale(1.35);
-  background: #4f46e5;
+/* Reveal on hover / selection — and only then accept pointer input. */
+.vue-flow__node:hover .handle-side,
+.vue-flow__node.selected .handle-side {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.handle-side:hover {
+  background: #4f46e5 !important;
+  transform: translate(-50%, -50%) scale(1.35);
+}
+
+/* Vue Flow positions handles with transform: translate(-50%, ...) per side;
+   preserve those translations when the hover scale is applied. */
+.handle-side.vue-flow__handle-top:hover {
+  transform: translate(-50%, -50%) scale(1.35);
+}
+.handle-side.vue-flow__handle-bottom:hover {
+  transform: translate(-50%, 50%) scale(1.35);
+}
+.handle-side.vue-flow__handle-left:hover {
+  transform: translate(-50%, -50%) scale(1.35);
+}
+.handle-side.vue-flow__handle-right:hover {
+  transform: translate(50%, -50%) scale(1.35);
+}
+
+/* Keep the active connection start handle visible mid-drag. */
+.handle-side.connecting,
+.handle-side.connectionindicator {
+  opacity: 1 !important;
+  pointer-events: all !important;
+  background: #4f46e5 !important;
 }
 
 /* ----------------------------------------------------------- Sketch mode --- */
@@ -109,20 +165,47 @@ body,
 }
 
 /* --------------------------------------------------------------- Edges ----- */
+/* Excalidraw-style arrows: straight, slightly heavy stroke with round caps,
+   dark in light mode, light in dark mode. */
 
 .vue-flow__edge-path {
+  stroke: #334155;
   stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dark .vue-flow__edge-path {
+  stroke: #cbd5e1;
+}
+
+.vue-flow__edge .vue-flow__arrowhead polyline,
+.vue-flow__edge .vue-flow__arrowhead path {
+  fill: #334155;
+  stroke: #334155;
+}
+
+.dark .vue-flow__edge .vue-flow__arrowhead polyline,
+.dark .vue-flow__edge .vue-flow__arrowhead path {
+  fill: #cbd5e1;
+  stroke: #cbd5e1;
 }
 
 .vue-flow__edge.selected .vue-flow__edge-path,
 .vue-flow__edge:focus .vue-flow__edge-path {
   stroke: #6366f1;
-  stroke-width: 3;
+  stroke-width: 2.5;
+}
+
+.vue-flow__edge.selected .vue-flow__arrowhead polyline,
+.vue-flow__edge.selected .vue-flow__arrowhead path {
+  fill: #6366f1;
+  stroke: #6366f1;
 }
 
 .vue-flow__edge:hover .vue-flow__edge-path {
   cursor: pointer;
-  stroke: #818cf8;
+  stroke: #6366f1;
 }
 
 /* ----------------------------------------------- Node resize handles ------- */

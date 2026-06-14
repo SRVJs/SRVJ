@@ -1,4 +1,11 @@
-import type { NodeColor, NodeShape, NodeVariant } from '@/types/diagram'
+import type {
+  FillStyle,
+  NodeColor,
+  NodeShape,
+  NodeVariant,
+  StrokeStyle,
+  StrokeWidth,
+} from '@/types/diagram'
 
 /** Schema version of a serialised diagram. Bump when the shape changes. */
 export const DIAGRAM_VERSION = 2
@@ -22,3 +29,7 @@ export const MAX_HISTORY = 50
 export const DEFAULT_VARIANT: NodeVariant = 'default'
 export const DEFAULT_SHAPE: NodeShape = 'rectangle'
 export const DEFAULT_COLOR: NodeColor = 'slate'
+export const DEFAULT_FILL_STYLE: FillStyle = 'solid'
+export const DEFAULT_STROKE_STYLE: StrokeStyle = 'solid'
+export const DEFAULT_STROKE_WIDTH: StrokeWidth = 'medium'
+export const DEFAULT_OPACITY = 100

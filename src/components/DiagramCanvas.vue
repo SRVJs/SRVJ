@@ -4,14 +4,21 @@ import { storeToRefs } from 'pinia'
 import {
   VueFlow,
   useVueFlow,
+  ConnectionMode,
   MarkerType,
   SelectionMode,
   type Connection,
   type EdgeChange,
   type NodeChange,
 } from '@vue-flow/core'
+
+// Block self-loops — a node should never connect to itself (Excalidraw rule).
+function isValidConnection(connection: Connection): boolean {
+  return connection.source !== connection.target
+}
 import { Background } from '@vue-flow/background'
 import { useDiagramStore } from '@/stores/diagram'
+import { useDarkMode } from '@/composables/useDarkMode'
 import { useEditorTool } from '@/composables/useEditorTool'
 import type { NewNodeOptions } from '@/types/diagram'
 import CustomNode from './CustomNode.vue'
@@ -19,7 +26,31 @@ import ZoomBar from './ZoomBar.vue'
 
 const store = useDiagramStore()
 const { nodes, edges } = storeToRefs(store)
-const { activeTool, activeColor, isSelectTool, resetTool } = useEditorTool()
+const { isDark } = useDarkMode()
+// Slightly dimmer dots in dark mode so they don't overpower the canvas.
+const dotColor = computed(() => (isDark.value ? '#475569' : '#cbd5e1'))
+const {
+  activeTool,
+  activeColor,
+  activeFillStyle,
+  activeStrokeStyle,
+  activeStrokeWidth,
+  activeOpacity,
+  isSelectTool,
+  resetTool,
+} = useEditorTool()
+
+// Bundle the current style defaults into the options for a new node, so the
+// shape the user is about to create inherits the palette settings.
+function currentStyleDefaults() {
+  return {
+    color: activeColor.value,
+    fillStyle: activeFillStyle.value,
+    strokeStyle: activeStrokeStyle.value,
+    strokeWidth: activeStrokeWidth.value,
+    opacity: activeOpacity.value,
+  }
+}
 
 // Register the single custom node implementation. `markRaw` prevents Vue from
 // making the component definition itself reactive.
@@ -28,6 +59,11 @@ const nodeTypes = {
 }
 
 const { screenToFlowCoordinate, onConnect } = useVueFlow()
+
+// Only fit-view on init when we actually loaded a saved diagram. Otherwise
+// Vue Flow fires fitView the moment the user creates their first node and
+// zooms in onto that single shape — a confusing surprise.
+const fitViewOnInit = store.nodes.length > 0
 
 onConnect((connection: Connection) => store.onConnect(connection))
 
@@ -90,7 +126,7 @@ function onPointerUp() {
   const width = Math.abs(end.x - start.x)
   const height = Math.abs(end.y - start.y)
 
-  const base = { shape: tool.shape, variant: tool.variant, color: activeColor.value }
+  const base = { shape: tool.shape, variant: tool.variant, ...currentStyleDefaults() }
   if (width < 12 || height < 12) {
     // Treated as a click → drop a default-sized node at the point.
     store.addNode({ ...base, position: { x: start.x, y: start.y } })
@@ -121,7 +157,9 @@ function handleDrop(event: DragEvent) {
     return
   }
   const position = screenToFlowCoordinate({ x: event.clientX, y: event.clientY })
-  store.addNode({ ...payload, position })
+  // Drop payload supplies shape/variant/color; the rest of the active style
+  // defaults (fill, stroke, opacity) come from the editor tool refs.
+  store.addNode({ ...currentStyleDefaults(), ...payload, position })
 }
 </script>
 
@@ -140,7 +178,10 @@ function handleDrop(event: DragEvent) {
       :nodes="nodes"
       :edges="edges"
       :node-types="nodeTypes"
-      :default-edge-options="{ type: 'smoothstep', markerEnd: MarkerType.ArrowClosed }"
+      :default-edge-options="{ type: 'straight', markerEnd: MarkerType.ArrowClosed }"
+      :connection-mode="ConnectionMode.Loose"
+      :connection-radius="160"
+      :is-valid-connection="isValidConnection"
       :min-zoom="0.2"
       :max-zoom="4"
       :delete-key-code="null"
@@ -149,13 +190,13 @@ function handleDrop(event: DragEvent) {
       :pan-on-drag="isSelectTool ? [1, 2] : false"
       :nodes-draggable="isSelectTool"
       :elements-selectable="isSelectTool"
-      fit-view-on-init
+      :fit-view-on-init="fitViewOnInit"
       class="diagram-flow"
       @nodes-change="handleNodesChange"
       @edges-change="handleEdgesChange"
       @node-drag-start="handleNodeDragStart"
     >
-      <Background :gap="22" :size="1.2" pattern-color="#cbd5e1" />
+      <Background :gap="22" :size="1.2" :pattern-color="dotColor" />
       <ZoomBar />
 
       <template v-if="nodes.length === 0">
@@ -171,10 +212,10 @@ function handleDrop(event: DragEvent) {
       </template>
     </VueFlow>
 
-    <!-- Live preview while drawing a new shape -->
+    <!-- Live preview while drawing a new shape (dashed, Excalidraw-style). -->
     <div
       v-show="isDrawing"
-      class="pointer-events-none absolute z-20 rounded-md border-2 border-indigo-500 bg-indigo-500/10"
+      class="pointer-events-none absolute z-20 rounded-md border-[1.5px] border-dashed border-indigo-400 bg-indigo-400/5"
       :style="previewStyle"
     />
   </div>

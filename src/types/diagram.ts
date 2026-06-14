@@ -19,12 +19,26 @@ export type NodeShape = 'rectangle' | 'ellipse' | 'diamond' | 'sticky' | 'text'
 /** Named fill colour drawn from a fixed Excalidraw-like palette. */
 export type NodeColor = 'slate' | 'blue' | 'green' | 'yellow' | 'red' | 'violet'
 
+/** Background fill mode — solid (use palette fill) or transparent (no fill). */
+export type FillStyle = 'solid' | 'transparent'
+
+/** Border line style. */
+export type StrokeStyle = 'solid' | 'dashed' | 'dotted'
+
+/** Border thickness preset (mapped to pixel widths in CSS). */
+export type StrokeWidth = 'thin' | 'medium' | 'thick'
+
 /** Data payload carried by every diagram node. */
 export interface DiagramNodeData {
   label: string
   variant: NodeVariant
   shape: NodeShape
   color: NodeColor
+  fillStyle: FillStyle
+  strokeStyle: StrokeStyle
+  strokeWidth: StrokeWidth
+  /** Whole-node opacity, 0-100. */
+  opacity: number
 }
 
 /**
@@ -68,6 +82,10 @@ export interface NewNodeOptions {
   variant?: NodeVariant
   shape?: NodeShape
   color?: NodeColor
+  fillStyle?: FillStyle
+  strokeStyle?: StrokeStyle
+  strokeWidth?: StrokeWidth
+  opacity?: number
   label?: string
   position?: XYPosition
   /** Explicit size (e.g. when drawn by dragging). Falls back to a shape default. */

@@ -1,7 +1,5 @@
-<script setup lang="ts">
-import EditorView from '@/views/EditorView.vue'
-</script>
+<script setup lang="ts"></script>
 
 <template>
-  <EditorView />
+  <RouterView />
 </template>

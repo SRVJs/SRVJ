@@ -13,16 +13,23 @@ import type {
   DiagramEdge,
   DiagramNode,
   DiagramSnapshot,
+  FillStyle,
   NewNodeOptions,
   NodeColor,
   NodeRect,
   NodeShape,
   NodeVariant,
+  StrokeStyle,
+  StrokeWidth,
 } from '@/types/diagram'
 import { createId } from '@/utils/id'
 import {
   DEFAULT_COLOR,
+  DEFAULT_FILL_STYLE,
+  DEFAULT_OPACITY,
   DEFAULT_SHAPE,
+  DEFAULT_STROKE_STYLE,
+  DEFAULT_STROKE_WIDTH,
   DEFAULT_VARIANT,
   DIAGRAM_VERSION,
   MAX_HISTORY,
@@ -42,6 +49,14 @@ interface DiagramState {
 const VARIANTS = new Set<NodeVariant>(['default', 'input', 'output'])
 const SHAPES = new Set<NodeShape>(['rectangle', 'ellipse', 'diamond', 'sticky', 'text'])
 const COLORS = new Set<NodeColor>(['slate', 'blue', 'green', 'yellow', 'red', 'violet'])
+const FILL_STYLES = new Set<FillStyle>(['solid', 'transparent'])
+const STROKE_STYLES = new Set<StrokeStyle>(['solid', 'dashed', 'dotted'])
+const STROKE_WIDTHS = new Set<StrokeWidth>(['thin', 'medium', 'thick'])
+
+function clampOpacity(value: unknown): number {
+  if (typeof value !== 'number' || Number.isNaN(value)) return DEFAULT_OPACITY
+  return Math.max(0, Math.min(100, Math.round(value)))
+}
 
 /** Default rendered size for each shape (the node is resizable from here). */
 function defaultStyle(shape: NodeShape): Record<string, string> {
@@ -53,7 +68,9 @@ function defaultStyle(shape: NodeShape): Record<string, string> {
     case 'sticky':
       return { width: '160px', height: '160px' }
     case 'text':
-      return { width: '160px', height: '48px' }
+      // Auto-size to the typed content (Excalidraw-style) — the node footprint
+      // grows with the text instead of sitting inside a fixed-size rectangle.
+      return { width: 'auto', height: 'auto', minWidth: '24px', minHeight: '24px' }
     default:
       return { width: '176px', height: '72px' }
   }
@@ -81,6 +98,10 @@ function buildNode(options: NewNodeOptions): DiagramNode {
       variant,
       shape,
       color: options.color ?? DEFAULT_COLOR,
+      fillStyle: options.fillStyle ?? DEFAULT_FILL_STYLE,
+      strokeStyle: options.strokeStyle ?? DEFAULT_STROKE_STYLE,
+      strokeWidth: options.strokeWidth ?? DEFAULT_STROKE_WIDTH,
+      opacity: clampOpacity(options.opacity ?? DEFAULT_OPACITY),
     },
   }
 }
@@ -99,6 +120,10 @@ function normalizeNode(node: DiagramNode): DiagramNode {
       variant: VARIANTS.has(data.variant) ? data.variant : DEFAULT_VARIANT,
       shape,
       color: COLORS.has(data.color) ? data.color : DEFAULT_COLOR,
+      fillStyle: FILL_STYLES.has(data.fillStyle) ? data.fillStyle : DEFAULT_FILL_STYLE,
+      strokeStyle: STROKE_STYLES.has(data.strokeStyle) ? data.strokeStyle : DEFAULT_STROKE_STYLE,
+      strokeWidth: STROKE_WIDTHS.has(data.strokeWidth) ? data.strokeWidth : DEFAULT_STROKE_WIDTH,
+      opacity: clampOpacity(data.opacity),
     },
   }
 }
@@ -150,6 +175,35 @@ export const useDiagramStore = defineStore('diagram', {
       const colors = new Set(selected.map((n) => n.data.color))
       return colors.size === 1 ? [...colors][0] : null
     },
+
+    selectionFillStyle(state): FillStyle | null {
+      const selected = state.nodes.filter((n) => n.selected)
+      if (selected.length === 0) return null
+      const set = new Set(selected.map((n) => n.data.fillStyle))
+      return set.size === 1 ? [...set][0] : null
+    },
+
+    selectionStrokeStyle(state): StrokeStyle | null {
+      const selected = state.nodes.filter((n) => n.selected)
+      if (selected.length === 0) return null
+      const set = new Set(selected.map((n) => n.data.strokeStyle))
+      return set.size === 1 ? [...set][0] : null
+    },
+
+    selectionStrokeWidth(state): StrokeWidth | null {
+      const selected = state.nodes.filter((n) => n.selected)
+      if (selected.length === 0) return null
+      const set = new Set(selected.map((n) => n.data.strokeWidth))
+      return set.size === 1 ? [...set][0] : null
+    },
+
+    /** Shared opacity (0-100) of the current node selection, or null when mixed/empty. */
+    selectionOpacity(state): number | null {
+      const selected = state.nodes.filter((n) => n.selected)
+      if (selected.length === 0) return null
+      const set = new Set(selected.map((n) => n.data.opacity))
+      return set.size === 1 ? [...set][0] : null
+    },
   },
 
   actions: {
@@ -190,9 +244,11 @@ export const useDiagramStore = defineStore('diagram', {
     },
 
     onConnect(connection: Connection) {
+      // Reject self-loops outright — a node can't connect to itself.
+      if (connection.source === connection.target) return
       this.commit()
       this.edges = addEdge(
-        { ...connection, animated: false, type: 'smoothstep' },
+        { ...connection, animated: false, type: 'straight' },
         this.edges as unknown as GraphEdge[],
       ) as unknown as DiagramEdge[]
     },
@@ -245,6 +301,48 @@ export const useDiagramStore = defineStore('diagram', {
       const set = new Set(targetIds)
       this.nodes = this.nodes.map((n) =>
         set.has(n.id) ? { ...n, data: { ...n.data, color } } : n,
+      )
+    },
+
+    updateNodeFillStyle(fillStyle: FillStyle, ids?: string[]) {
+      const targetIds = ids ?? this.selectedNodeIds
+      if (targetIds.length === 0) return
+      this.commit()
+      const set = new Set(targetIds)
+      this.nodes = this.nodes.map((n) =>
+        set.has(n.id) ? { ...n, data: { ...n.data, fillStyle } } : n,
+      )
+    },
+
+    updateNodeStrokeStyle(strokeStyle: StrokeStyle, ids?: string[]) {
+      const targetIds = ids ?? this.selectedNodeIds
+      if (targetIds.length === 0) return
+      this.commit()
+      const set = new Set(targetIds)
+      this.nodes = this.nodes.map((n) =>
+        set.has(n.id) ? { ...n, data: { ...n.data, strokeStyle } } : n,
+      )
+    },
+
+    updateNodeStrokeWidth(strokeWidth: StrokeWidth, ids?: string[]) {
+      const targetIds = ids ?? this.selectedNodeIds
+      if (targetIds.length === 0) return
+      this.commit()
+      const set = new Set(targetIds)
+      this.nodes = this.nodes.map((n) =>
+        set.has(n.id) ? { ...n, data: { ...n.data, strokeWidth } } : n,
+      )
+    },
+
+    /** Apply opacity (0-100) to the given node ids (defaults to current selection). */
+    updateNodeOpacity(opacity: number, ids?: string[]) {
+      const targetIds = ids ?? this.selectedNodeIds
+      if (targetIds.length === 0) return
+      const clamped = clampOpacity(opacity)
+      this.commit()
+      const set = new Set(targetIds)
+      this.nodes = this.nodes.map((n) =>
+        set.has(n.id) ? { ...n, data: { ...n.data, opacity: clamped } } : n,
       )
     },
 

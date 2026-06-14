@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import App from './App.vue'
+import router from './router'
 
 // Vue Flow core + addon styles
 import '@vue-flow/core/dist/style.css'
@@ -16,4 +17,4 @@ import 'virtual:uno.css'
 // App-level custom styles (kept minimal)
 import './style.css'
 
-createApp(App).use(createPinia()).mount('#app')
+createApp(App).use(createPinia()).use(router).mount('#app')
