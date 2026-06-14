@@ -164,31 +164,101 @@ body,
   letter-spacing: 0.2px;
 }
 
+/* Hand-drawn arrows (Ref 2): wobble the straight path with the displacement
+   filter, beef up the stroke, and put labels in the handwriting font. */
+.sketch-mode .vue-flow__edge-path {
+  filter: url(#sketch-edge);
+  stroke-width: 2.25;
+}
+
+.sketch-mode .edge-label {
+  font-family: var(--font-hand);
+}
+
 /* --------------------------------------------------------------- Edges ----- */
-/* Excalidraw-style arrows: straight, slightly heavy stroke with round caps,
-   dark in light mode, light in dark mode. */
+/* Clean straight connectors (Ref 1): thin muted-gray stroke with round caps,
+   a touch lighter in dark mode. */
 
 .vue-flow__edge-path {
-  stroke: #334155;
-  stroke-width: 2;
+  stroke: #64748b;
+  stroke-width: 1.75;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .dark .vue-flow__edge-path {
-  stroke: #cbd5e1;
+  stroke: #94a3b8;
 }
 
 .vue-flow__edge .vue-flow__arrowhead polyline,
 .vue-flow__edge .vue-flow__arrowhead path {
-  fill: #334155;
-  stroke: #334155;
+  fill: #64748b;
+  stroke: #64748b;
 }
 
 .dark .vue-flow__edge .vue-flow__arrowhead polyline,
 .dark .vue-flow__edge .vue-flow__arrowhead path {
-  fill: #cbd5e1;
-  stroke: #cbd5e1;
+  fill: #94a3b8;
+  stroke: #94a3b8;
+}
+
+/* ---- Edge labels (the "Push work" / "Delegate" tags on the line) ---------- */
+.edge-label {
+  position: absolute;
+  pointer-events: all;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  line-height: 1;
+  cursor: text;
+}
+
+.edge-label__text {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 500;
+  box-shadow: 0 0 0 3px #f8fafc;
+}
+
+.dark .edge-label__text {
+  background: #1e293b;
+  color: #e2e8f0;
+  box-shadow: 0 0 0 3px #1e293b;
+}
+
+/* Faint "+ label" affordance on unlabeled edges — only shown on hover. */
+.edge-label__hint {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(99, 102, 241, 0.12);
+  color: #6366f1;
+  font-weight: 500;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.edge-label--empty:hover .edge-label__hint {
+  opacity: 1;
+}
+
+.edge-label__input {
+  width: 90px;
+  padding: 2px 6px;
+  border: 1px solid #6366f1;
+  border-radius: 6px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  text-align: center;
+  outline: none;
+}
+
+.dark .edge-label__input {
+  background: #0f172a;
+  color: #e2e8f0;
 }
 
 .vue-flow__edge.selected .vue-flow__edge-path,

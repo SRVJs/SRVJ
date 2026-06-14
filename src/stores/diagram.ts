@@ -221,7 +221,8 @@ export const useDiagramStore = defineStore('diagram', {
     /** Replace the live diagram with the given snapshot (no history push). */
     applySnapshot(snapshot: DiagramSnapshot) {
       this.nodes = clone(snapshot.nodes).map(normalizeNode)
-      this.edges = clone(snapshot.edges).map((e) => ({ ...e, selected: false }))
+      // Every edge renders through CustomEdge (straight line + editable label).
+      this.edges = clone(snapshot.edges).map((e) => ({ ...e, type: 'custom', selected: false }))
     },
 
     // ---- Vue Flow change handlers (controlled flow) -----------------------
@@ -234,6 +235,18 @@ export const useDiagramStore = defineStore('diagram', {
         changes,
         this.nodes as unknown as GraphNode[],
       ) as unknown as DiagramNode[]
+      // Vue Flow's `applyNodeChanges` only writes a `position` change onto a
+      // node it recognises as a fully-processed GraphNode (one carrying
+      // `computedPosition`). Our store nodes are deliberately plain/serialisable
+      // and never carry it, so drag positions are dropped here — the node moves
+      // on screen (Vue Flow's internal copy) but the store keeps the creation
+      // position. The next array rebuild (recolour, restyle, undo, …) then
+      // snaps the node back. Persist the new position ourselves to fix that.
+      for (const change of changes) {
+        if (change.type !== 'position' || !change.position) continue
+        const node = this.nodes.find((n) => n.id === change.id)
+        if (node) node.position = { ...change.position }
+      }
     },
 
     onEdgesChange(changes: EdgeChange[]) {
@@ -248,9 +261,18 @@ export const useDiagramStore = defineStore('diagram', {
       if (connection.source === connection.target) return
       this.commit()
       this.edges = addEdge(
-        { ...connection, animated: false, type: 'straight' },
+        { ...connection, animated: false, type: 'custom', label: '' },
         this.edges as unknown as GraphEdge[],
       ) as unknown as DiagramEdge[]
+    },
+
+    /** Set (or clear) the text label on an edge — used by CustomEdge editing. */
+    updateEdgeLabel(id: string, label: string) {
+      const edge = this.edges.find((e) => e.id === id)
+      if (!edge || (edge.label ?? '') === label) return
+      this.commit()
+      // Replace the edge object so Vue Flow's controlled render picks it up.
+      this.edges = this.edges.map((e) => (e.id === id ? { ...e, label } : e))
     },
 
     // ---- Node operations --------------------------------------------------

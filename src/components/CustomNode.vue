@@ -27,7 +27,7 @@ interface ColorStyle {
 const colorStyles: Record<NodeColor, ColorStyle> = {
   slate: {
     fill: 'bg-white dark:bg-slate-800',
-    border: 'border-slate-300 dark:border-slate-500',
+    border: 'border-slate-400 dark:border-slate-500',
     text: 'text-slate-700 dark:text-slate-100',
     sticky: 'bg-slate-200 text-slate-800 dark:bg-slate-300 dark:text-slate-900',
   },
@@ -110,7 +110,7 @@ const shapeClasses = computed(() => {
     case 'text':
       return ['shape-text', 'border-0 bg-transparent']
     default:
-      return ['shape-rectangle', 'rounded-xl', sw, ss, transparent ? '' : c.fill, c.border]
+      return ['shape-rectangle', 'rounded-2xl', sw, ss, transparent ? '' : c.fill, c.border]
   }
 })
 

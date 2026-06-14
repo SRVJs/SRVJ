@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, markRaw, ref } from 'vue'
+import { computed, markRaw, onBeforeUnmount, onMounted, ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import {
   VueFlow,
@@ -22,6 +22,7 @@ import { useDarkMode } from '@/composables/useDarkMode'
 import { useEditorTool } from '@/composables/useEditorTool'
 import type { NewNodeOptions } from '@/types/diagram'
 import CustomNode from './CustomNode.vue'
+import CustomEdge from './CustomEdge.vue'
 import ZoomBar from './ZoomBar.vue'
 
 const store = useDiagramStore()
@@ -58,6 +59,11 @@ const nodeTypes = {
   custom: markRaw(CustomNode),
 }
 
+// Single custom edge type — straight line with an inline-editable label.
+const edgeTypes = {
+  custom: markRaw(CustomEdge),
+}
+
 const { screenToFlowCoordinate, onConnect } = useVueFlow()
 
 // Only fit-view on init when we actually loaded a saved diagram. Otherwise
@@ -80,6 +86,51 @@ function handleNodeDragStart() {
   store.commit()
 }
 
+// ---- Hold-space to pan (Figma/Excalidraw-style) -----------------------------
+// While the space bar is held, the canvas enters a temporary "hand" mode:
+// dragging anywhere pans the viewport (even with a shape tool active) and
+// drawing/selection are suppressed so the drag never creates or moves a node.
+const isSpacePanning = ref(false)
+
+// Don't hijack the space bar when a control is focused — space still needs to
+// type into fields and activate focused buttons/links for keyboard users.
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false
+  const tag = target.tagName.toLowerCase()
+  return (
+    tag === 'input' ||
+    tag === 'textarea' ||
+    tag === 'button' ||
+    tag === 'a' ||
+    tag === 'select' ||
+    target.isContentEditable ||
+    target.getAttribute('role') === 'button'
+  )
+}
+
+function onKeyDown(event: KeyboardEvent) {
+  if (event.code !== 'Space' || event.repeat) return
+  if (isInteractiveTarget(event.target)) return
+  // Stop the page from scrolling while space is used to pan.
+  event.preventDefault()
+  isSpacePanning.value = true
+}
+
+function onKeyUp(event: KeyboardEvent) {
+  if (event.code !== 'Space') return
+  isSpacePanning.value = false
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onKeyDown)
+  window.addEventListener('keyup', onKeyUp)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeyDown)
+  window.removeEventListener('keyup', onKeyUp)
+})
+
 // ---- Draw-to-create (Excalidraw-style) --------------------------------------
 const wrapperRef = ref<HTMLElement | null>(null)
 const isDrawing = ref(false)
@@ -99,6 +150,8 @@ const previewStyle = computed(() => {
 })
 
 function onPointerDown(event: PointerEvent) {
+  // Space-pan takes over the drag entirely — never start drawing.
+  if (isSpacePanning.value) return
   // Only draw when a shape tool is active and the press starts on the canvas.
   if (isSelectTool.value || event.button !== 0) return
   if (!(event.target as HTMLElement).closest('.vue-flow__pane')) return
@@ -167,29 +220,41 @@ function handleDrop(event: DragEvent) {
   <div
     ref="wrapperRef"
     class="relative h-full w-full"
-    :class="isSelectTool ? '' : 'cursor-crosshair'"
+    :class="isSpacePanning ? 'cursor-grab' : isSelectTool ? '' : 'cursor-crosshair'"
     @dragover="handleDragOver"
     @drop="handleDrop"
     @pointerdown.capture="onPointerDown"
     @pointermove.capture="onPointerMove"
     @pointerup.capture="onPointerUp"
   >
+    <!-- Hand-drawn wobble filter, referenced by edge paths in sketch mode
+         (Ref-2 Excalidraw look). Lives off-screen; only the def matters. -->
+    <svg aria-hidden="true" class="pointer-events-none absolute h-0 w-0">
+      <defs>
+        <filter id="sketch-edge">
+          <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" result="noise" />
+          <feDisplacementMap in="SourceGraphic" in2="noise" scale="3.5" />
+        </filter>
+      </defs>
+    </svg>
+
     <VueFlow
       :nodes="nodes"
       :edges="edges"
       :node-types="nodeTypes"
-      :default-edge-options="{ type: 'straight', markerEnd: MarkerType.ArrowClosed }"
+      :edge-types="edgeTypes"
+      :default-edge-options="{ type: 'custom', markerEnd: MarkerType.ArrowClosed }"
       :connection-mode="ConnectionMode.Loose"
       :connection-radius="160"
       :is-valid-connection="isValidConnection"
       :min-zoom="0.2"
       :max-zoom="4"
       :delete-key-code="null"
-      :selection-key-code="isSelectTool ? true : null"
+      :selection-key-code="isSelectTool && !isSpacePanning ? true : null"
       :selection-mode="SelectionMode.Partial"
-      :pan-on-drag="isSelectTool ? [1, 2] : false"
-      :nodes-draggable="isSelectTool"
-      :elements-selectable="isSelectTool"
+      :pan-on-drag="isSpacePanning ? [0, 1, 2] : isSelectTool ? [1, 2] : false"
+      :nodes-draggable="isSelectTool && !isSpacePanning"
+      :elements-selectable="isSelectTool && !isSpacePanning"
       :fit-view-on-init="fitViewOnInit"
       class="diagram-flow"
       @nodes-change="handleNodesChange"

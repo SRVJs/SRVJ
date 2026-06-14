@@ -8,7 +8,7 @@ import type {
 } from '@/types/diagram'
 
 /** Schema version of a serialised diagram. Bump when the shape changes. */
-export const DIAGRAM_VERSION = 2
+export const DIAGRAM_VERSION = 3
 
 /** localStorage key under which the diagram is auto-saved. */
 export const STORAGE_KEY = 'srvj:diagram'
