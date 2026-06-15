@@ -38,3 +38,13 @@ export interface RegisterPayload {
   email: string
   password: string
 }
+
+/**
+ * Fields for `POST /user/update` (multipart). Both are optional so the user can
+ * change just their name, just their avatar, or both. `img` is the new avatar
+ * file; omit it to keep the current one.
+ */
+export interface UpdateProfilePayload {
+  fullname?: string
+  img?: File | null
+}

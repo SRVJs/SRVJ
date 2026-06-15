@@ -1,8 +1,14 @@
 import { defineStore } from 'pinia'
-import { ApiError, apiFetch } from '@/utils/api'
+import { ApiError, apiFetch, registerTokenRefresher } from '@/utils/api'
 import { storage } from '@/utils/storage'
 import { AUTH_TOKEN_STORAGE_KEY } from '@/utils/constants'
-import type { AuthData, LoginPayload, RegisterPayload, User } from '@/types/auth'
+import type {
+  AuthData,
+  LoginPayload,
+  RegisterPayload,
+  UpdateProfilePayload,
+  User,
+} from '@/types/auth'
 
 interface AuthState {
   /** Profile of the signed-in user, or `null` when signed out. */
@@ -94,11 +100,66 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    /** Exchange the httpOnly refresh cookie for a fresh access token. */
-    async refresh() {
-      const data = await apiFetch<AuthData>('/auth/refresh', { method: 'POST' })
-      this.setToken(data.token)
-      return data.token
+    /**
+     * Update the signed-in user's profile (name and/or avatar). Sends a
+     * multipart body so the new avatar `img` file rides along, then refreshes
+     * `user` from the canonical `/user/me` so the UI reflects the server state.
+     */
+    async updateProfile(payload: UpdateProfilePayload) {
+      this.loading = true
+      this.error = null
+      try {
+        const form = new FormData()
+        if (payload.fullname !== undefined) form.append('fullname', payload.fullname)
+        if (payload.img) form.append('img', payload.img)
+
+        await apiFetch('/user/update', { method: 'PUT', body: form, token: this.token })
+        await this.fetchProfile()
+      } catch (error) {
+        this.error = messageOf(error)
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
+    /**
+     * Permanently delete the signed-in user's account, then clear the local
+     * session. Irreversible — the caller is responsible for confirming intent.
+     */
+    async deleteAccount() {
+      this.loading = true
+      this.error = null
+      try {
+        await apiFetch('/user/delete', { method: 'DELETE', token: this.token })
+        this.clearSession()
+      } catch (error) {
+        this.error = messageOf(error)
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
+    /**
+     * Exchange the httpOnly refresh cookie for a fresh access token. Returns
+     * the new token, or `null` if the session can't be renewed (the refresh
+     * cookie is missing/expired) — in which case the session is cleared so the
+     * user is prompted to sign in again. `skipAuthRefresh` stops a failed
+     * refresh from recursing back into `apiFetch`'s retry path.
+     */
+    async refresh(): Promise<string | null> {
+      try {
+        const data = await apiFetch<AuthData>('/auth/refresh', {
+          method: 'POST',
+          skipAuthRefresh: true,
+        })
+        this.setToken(data.token)
+        return data.token
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 401) this.clearSession()
+        return null
+      }
     },
 
     async logout() {
@@ -117,6 +178,8 @@ export const useAuthStore = defineStore('auth', {
      * `fetchProfile` on 401), so the editor never blocks on auth.
      */
     async init() {
+      // Let apiFetch transparently renew an expired access token on any 401.
+      registerTokenRefresher(() => this.refresh())
       if (!this.token) return
       try {
         await this.fetchProfile()

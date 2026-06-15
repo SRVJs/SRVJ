@@ -3,15 +3,22 @@ import { ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import AuthDialog from './AuthDialog.vue'
+import ProfileDialog from './ProfileDialog.vue'
 
 const auth = useAuthStore()
 const { user, isAuthenticated, loading } = storeToRefs(auth)
 
 const dialogOpen = ref(false)
+const profileOpen = ref(false)
 const menuOpen = ref(false)
 
 function openDialog() {
   dialogOpen.value = true
+}
+
+function openProfile() {
+  menuOpen.value = false
+  profileOpen.value = true
 }
 
 async function onLogout() {
@@ -69,6 +76,15 @@ async function onLogout() {
         <button
           type="button"
           role="menuitem"
+          class="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-700"
+          @click="openProfile"
+        >
+          <span class="i-mdi-account-cog-outline" aria-hidden="true" />
+          Account settings
+        </button>
+        <button
+          type="button"
+          role="menuitem"
           :disabled="loading"
           class="flex w-full items-center gap-2 px-4 py-2.5 text-left text-sm text-rose-600 hover:bg-rose-50 disabled:opacity-60 dark:text-rose-400 dark:hover:bg-rose-900/30"
           @click="onLogout"
@@ -80,5 +96,6 @@ async function onLogout() {
     </template>
 
     <AuthDialog :open="dialogOpen" @close="dialogOpen = false" />
+    <ProfileDialog :open="profileOpen" @close="profileOpen = false" />
   </div>
 </template>
