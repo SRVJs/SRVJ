@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { useGoogleAuth } from '@/composables/useGoogleAuth'
@@ -8,6 +9,8 @@ import ProfileDialog from './ProfileDialog.vue'
 
 const auth = useAuthStore()
 const google = useGoogleAuth()
+const route = useRoute()
+const router = useRouter()
 const { user, isAuthenticated, loading } = storeToRefs(auth)
 
 const dialogOpen = ref(false)
@@ -18,6 +21,7 @@ const menuOpen = ref(false)
 async function onGoogleCredential(credential: string) {
   try {
     await auth.loginWithGoogleCredential(credential)
+    if (route.name === 'home') router.push({ name: 'dashboard' })
   } catch {
     // Error surfaced via auth.error; the sign-in button stays available.
   }

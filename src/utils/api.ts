@@ -91,7 +91,12 @@ async function rawFetch<T>(path: string, method: string, body: unknown, token: s
     envelope = null
   }
 
-  if (!response.ok || !envelope?.success) {
+  // Treat a response as failed only on a bad HTTP status or an envelope that
+  // *explicitly* flags failure. Some endpoints (e.g. /project*) omit the
+  // `success`/`error` flags on success, so a missing flag must not be read as
+  // failure — otherwise a 200 throws with its own success `message`.
+  const explicitlyFailed = envelope?.success === false || envelope?.error === true
+  if (!response.ok || !envelope || explicitlyFailed) {
     throw new ApiError(
       envelope?.message ?? `Request failed (${response.status})`,
       response.status,

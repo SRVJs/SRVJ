@@ -5,6 +5,7 @@ import { useDiagramStore } from '@/stores/diagram'
 import { useDarkMode } from '@/composables/useDarkMode'
 import { useSketchMode } from '@/composables/useSketchMode'
 import { downloadDiagram, parseDiagram, readFileAsText } from '@/utils/exportImport'
+import { createId } from '@/utils/id'
 import ToolbarButton from './ToolbarButton.vue'
 import AuthMenu from './AuthMenu.vue'
 
@@ -14,6 +15,33 @@ const { isDark, toggle: toggleDark } = useDarkMode()
 const { isSketch, toggle: toggleSketch } = useSketchMode()
 
 const fileInput = ref<HTMLInputElement | null>(null)
+
+// Brief "Link copied" feedback on the Share button.
+const shareCopied = ref(false)
+let shareResetTimer: ReturnType<typeof setTimeout> | undefined
+
+/**
+ * Build a shareable link by ensuring the URL carries a `room=<uuid>` query.
+ * Reuses an existing room when one is already present so the same canvas keeps
+ * its id, persists it to the address bar, and copies the link to the clipboard.
+ */
+async function shareLink() {
+  const url = new URL(window.location.href)
+  if (!url.searchParams.get('room')) {
+    url.searchParams.set('room', createId())
+    window.history.replaceState(window.history.state, '', url.toString())
+  }
+
+  const link = url.toString()
+  try {
+    await navigator.clipboard.writeText(link)
+    shareCopied.value = true
+    clearTimeout(shareResetTimer)
+    shareResetTimer = setTimeout(() => (shareCopied.value = false), 2000)
+  } catch {
+    window.prompt('Copy this share link:', link)
+  }
+}
 
 function exportJson() {
   downloadDiagram(store.snapshot, `srvj-diagram-${Date.now()}.json`)
@@ -74,6 +102,11 @@ function confirmReset() {
 
       <ToolbarButton label="Export" icon="i-solar-download-minimalistic-linear" @click="exportJson" />
       <ToolbarButton label="Import" icon="i-solar-upload-minimalistic-linear" @click="triggerImport" />
+      <ToolbarButton
+        :label="shareCopied ? 'Copied!' : 'Share'"
+        :icon="shareCopied ? 'i-mdi-check' : 'i-mdi-share-variant-outline'"
+        @click="shareLink"
+      />
       <ToolbarButton label="Reset" icon="i-codicon-clear-all" variant="danger" @click="confirmReset" />
     </div>
 

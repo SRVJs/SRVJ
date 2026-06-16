@@ -6,9 +6,11 @@
 export interface ApiEnvelope<T> {
   code: number
   status: string
-  timestamp: number | string
-  success: boolean
-  error: boolean
+  timestamp?: number | string
+  /** Present on auth endpoints; omitted by some others (e.g. `/project*`). A
+   * response is only treated as a failure when this is explicitly `false`. */
+  success?: boolean
+  error?: boolean
   message: string
   data: T
 }

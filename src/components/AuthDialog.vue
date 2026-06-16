@@ -1,23 +1,61 @@
 <script setup lang="ts">
-import { computed, nextTick, reactive, ref, watch } from 'vue'
-import { useAuthStore } from '@/stores/auth'
-import { useGoogleAuth } from '@/composables/useGoogleAuth'
+import { computed, nextTick, reactive, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useAuthStore } from "@/stores/auth";
+import { useGoogleAuth } from "@/composables/useGoogleAuth";
 
-const props = defineProps<{ open: boolean }>()
-const emit = defineEmits<{ (e: 'close'): void }>()
+const props = defineProps<{ open: boolean }>();
+const emit = defineEmits<{ (e: "close"): void }>();
 
-const auth = useAuthStore()
-const google = useGoogleAuth()
+const auth = useAuthStore();
+const google = useGoogleAuth();
+const route = useRoute();
+const router = useRouter();
 
-type Mode = 'login' | 'register'
-const mode = ref<Mode>('login')
-const form = reactive({ fullname: '', email: '', password: '' })
-const emailInput = ref<HTMLInputElement | null>(null)
-const googleButton = ref<HTMLElement | null>(null)
+/** After a successful sign-in from the public home page, send the user to
+ * their dashboard; elsewhere (e.g. the editor) stay put. */
+function onAuthSuccess() {
+  emit("close");
+  if (route.name === "home") router.push({ name: "dashboard" });
+}
 
-const isRegister = computed(() => mode.value === 'register')
-const title = computed(() => (isRegister.value ? 'Create your account' : 'Welcome back'))
-const submitLabel = computed(() => (isRegister.value ? 'Sign up' : 'Sign in'))
+type Mode = "login" | "register";
+const mode = ref<Mode>("login");
+const form = reactive({ fullname: "", email: "", password: "" });
+const emailInput = ref<HTMLInputElement | null>(null);
+const googleButton = ref<HTMLElement | null>(null);
+
+const isRegister = computed(() => mode.value === "register");
+const title = computed(() => (isRegister.value ? "Create your account" : "Welcome back"));
+const submitLabel = computed(() => (isRegister.value ? "Sign up" : "Sign in"));
+
+/** Exchange the Google ID token from the popup for an SRVJ session. */
+async function onGoogleCredential(credential: string) {
+  try {
+    await auth.loginWithGoogleCredential(credential);
+    onAuthSuccess();
+  } catch {
+    // Error surfaced via auth.error; keep the dialog open for a retry.
+  }
+}
+
+/**
+ * Boot Google Identity Services once the dialog is open and its button slot has
+ * mounted: render the official button (which opens the account-chooser popup and
+ * hands back an ID token via {@link onGoogleCredential}) and surface the One Tap
+ * card. Failures (script blocked, misconfigured origin) are swallowed — the
+ * email form and redirect fallback still work.
+ */
+async function mountGoogleSignIn() {
+  if (!google.isConfigured || !googleButton.value) return;
+  try {
+    await google.init(onGoogleCredential);
+    google.renderButton(googleButton.value);
+    google.prompt();
+  } catch {
+    // GIS unavailable; the rest of the dialog remains usable.
+  }
+}
 
 /** Exchange the Google ID token from the popup for an SRVJ session. */
 async function onGoogleCredential(credential: string) {
@@ -51,34 +89,38 @@ watch(
   () => props.open,
   (open) => {
     if (!open) {
-      google.cancel() // dismiss the One Tap card when closing
-      return
+      google.cancel(); // dismiss the One Tap card when closing
+      return;
     }
-    mode.value = 'login'
-    form.fullname = ''
-    form.email = ''
-    form.password = ''
-    auth.error = null
+    mode.value = "login";
+    form.fullname = "";
+    form.email = "";
+    form.password = "";
+    auth.error = null;
     nextTick(() => {
-      emailInput.value?.focus()
-      void mountGoogleSignIn()
-    })
-  },
-)
+      emailInput.value?.focus();
+      void mountGoogleSignIn();
+    });
+  }
+);
 
 function switchMode(next: Mode) {
-  mode.value = next
-  auth.error = null
+  mode.value = next;
+  auth.error = null;
 }
 
 async function onSubmit() {
   try {
     if (isRegister.value) {
-      await auth.register({ fullname: form.fullname, email: form.email, password: form.password })
+      await auth.register({
+        fullname: form.fullname,
+        email: form.email,
+        password: form.password,
+      });
     } else {
-      await auth.login({ email: form.email, password: form.password })
+      await auth.login({ email: form.email, password: form.password });
     }
-    emit('close')
+    onAuthSuccess();
   } catch {
     // Error surfaced via auth.error; keep the dialog open for a retry.
   }
@@ -89,21 +131,27 @@ async function onSubmit() {
   <Teleport to="body">
     <div
       v-if="props.open"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/1 p-4 backdrop-blur-xl"
       @click.self="emit('close')"
     >
       <div
         role="dialog"
         aria-modal="true"
         :aria-label="title"
-        class="w-full max-w-sm rounded-xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-700 dark:bg-slate-800"
+        class="w-full max-w-sm rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-[#050505]/85"
         @keydown.esc="emit('close')"
       >
         <div class="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">{{ title }}</h2>
+            <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">
+              {{ title }}
+            </h2>
             <p class="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
-              {{ isRegister ? 'Sign up to sync your work.' : 'Sign in to your SRVJ account.' }}
+              {{
+                isRegister
+                  ? "Sign up to sync your work."
+                  : "Sign in to your SRVJ account."
+              }}
             </p>
           </div>
           <button
@@ -116,13 +164,13 @@ async function onSubmit() {
           </button>
         </div>
 
-        <div class="mb-4 flex rounded-lg bg-slate-100 p-1 dark:bg-slate-900">
+        <div class="mb-4 flex rounded-lg bg-slate-100 p-1 dark:bg-white/2">
           <button
             type="button"
             class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
             :class="
               !isRegister
-                ? 'bg-white text-slate-800 shadow-sm dark:bg-slate-700 dark:text-slate-100'
+                ? 'bg-white text-slate-800 shadow-sm dark:bg-white/10 dark:text-white'
                 : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
             "
             @click="switchMode('login')"
@@ -134,7 +182,7 @@ async function onSubmit() {
             class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
             :class="
               isRegister
-                ? 'bg-white text-slate-800 shadow-sm dark:bg-slate-700 dark:text-slate-100'
+                ? 'bg-white text-slate-800 shadow-sm dark:bg-white/10 dark:text-white'
                 : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
             "
             @click="switchMode('register')"
@@ -152,7 +200,7 @@ async function onSubmit() {
               required
               autocomplete="name"
               placeholder="Jane Doe"
-              class="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+              class="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:placeholder:text-slate-500"
             />
           </label>
 
@@ -165,7 +213,7 @@ async function onSubmit() {
               required
               autocomplete="email"
               placeholder="you@example.com"
-              class="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+              class="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:placeholder:text-slate-500"
             />
           </label>
 
@@ -177,7 +225,7 @@ async function onSubmit() {
               required
               :autocomplete="isRegister ? 'new-password' : 'current-password'"
               placeholder="••••••••"
-              class="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-800 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+              class="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:placeholder:text-slate-500"
             />
           </label>
 
@@ -199,30 +247,44 @@ async function onSubmit() {
               class="i-mdi-loading animate-spin"
               aria-hidden="true"
             />
-            {{ auth.loading ? 'Please wait…' : submitLabel }}
+            {{ auth.loading ? "Please wait…" : submitLabel }}
           </button>
         </form>
 
         <div class="my-4 flex items-center gap-3" aria-hidden="true">
           <span class="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
-          <span class="text-xs font-medium uppercase tracking-wide text-slate-400">or</span>
+          <span class="text-xs font-medium uppercase tracking-wide text-slate-400"
+            >or</span
+          >
           <span class="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
         </div>
 
-        <!-- Google Identity Services button (renders the account-chooser popup
-             on click; the One Tap card is also prompted when the dialog opens). -->
-        <div v-show="google.isConfigured" ref="googleButton" class="flex justify-center" />
-
-        <!-- Fallback when no Google client ID is configured: server-redirect flow. -->
+        <!-- Google sign-in. When GIS is configured, the styled button below is
+             purely visual and the real (transparent) GIS button is overlaid on
+             top — so the click opens Google's account-chooser popup and returns
+             an ID token via onGoogleCredential. -->
+        <div v-if="google.isConfigured" class="group relative">
+          <div
+            class="inline-flex w-full items-center justify-center gap-2.5 rounded-lg border border-black/10 bg-black px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors group-hover:bg-[#161616] dark:border-white/15 dark:bg-[#1f1f1f] dark:group-hover:bg-[#2a2a2a]"
+          >
+            <span class="i-logos-google-icon text-base" aria-hidden="true" />
+            Google
+          </div>
+          <!-- Real GIS button: covers the visual, made invisible. -->
+          <div
+            ref="googleButton"
+            class="absolute inset-0 z-10 flex cursor-pointer items-center justify-center opacity-0 [color-scheme:light]"
+          />
+        </div>
         <button
-          v-if="!google.isConfigured"
+          v-else
           type="button"
           :disabled="auth.loading"
-          class="inline-flex w-full items-center justify-center gap-2.5 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+          class="inline-flex w-full items-center justify-center gap-2.5 rounded-lg border border-black/10 bg-black px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#161616] disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:bg-[#1f1f1f] dark:hover:bg-[#2a2a2a]"
           @click="auth.loginWithGoogle()"
         >
           <span class="i-logos-google-icon text-base" aria-hidden="true" />
-          Continue with Google
+          Google
         </button>
       </div>
     </div>

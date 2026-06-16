@@ -27,7 +27,7 @@ onMounted(() => {
       to="/"
       class="rounded-lg bg-slate-800 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
     >
-      Back to editor
+      Back to home
     </RouterLink>
   </div>
 </template>

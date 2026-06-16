@@ -9,6 +9,16 @@ import type { RouteRecordRaw } from 'vue-router'
 export const routes: RouteRecordRaw[] = [
   {
     path: '/',
+    name: 'home',
+    component: () => import('@/views/HomeView.vue'),
+  },
+  {
+    path: '/dashboard',
+    name: 'dashboard',
+    component: () => import('@/views/DashboardView.vue'),
+  },
+  {
+    path: '/editor/:diagramId',
     name: 'editor',
     component: () => import('@/views/EditorView.vue'),
   },

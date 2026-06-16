@@ -16,6 +16,113 @@ body,
   flex-direction: column;
 }
 
+/* --------------------------------------------------- Dark theme palette --- */
+/* Flat neutral dark mode: background #202020, text #e8e8e8. Rather than rewrite
+   the `dark:` utility classes across every template, we remap the dark `slate`
+   scale here. style.css is imported after `virtual:uno.css` (see main.ts), so
+   these equal-specificity rules win the cascade. */
+html.dark,
+.dark body {
+  background-color: #010101;
+  color: #e8e8e8;
+}
+
+/* Surfaces */
+.dark .dark\:bg-slate-900 {
+  background-color: #010101;
+}
+
+/* Top navbar / toolbar (AppHeader + DiagramToolbar use `dark:bg-slate-900/85`). */
+.dark .dark\:bg-slate-900\/85 {
+  background-color: #020202;
+}
+
+.dark .dark\:bg-slate-800 {
+  background-color: #2a2a2a;
+}
+
+.dark .dark\:bg-slate-800\/90 {
+  background-color: rgba(42, 42, 42, 0.9);
+}
+
+.dark .dark\:bg-slate-800\/85 {
+  background-color: rgba(42, 42, 42, 0.85);
+}
+
+.dark .dark\:bg-slate-700 {
+  background-color: #383838;
+}
+
+.dark .dark\:bg-slate-600 {
+  background-color: #454545;
+}
+
+.dark .dark\:hover\:bg-slate-700:hover {
+  background-color: #383838;
+}
+
+.dark .dark\:hover\:bg-slate-700\/40:hover {
+  background-color: rgba(56, 56, 56, 0.4);
+}
+
+.dark .dark\:hover\:bg-slate-600:hover {
+  background-color: #454545;
+}
+
+/* Borders */
+.dark .dark\:border-slate-800 {
+  border-color: #2a2a2a;
+}
+
+.dark .dark\:border-slate-700 {
+  border-color: #353535;
+}
+
+.dark .dark\:border-slate-600 {
+  border-color: #454545;
+}
+
+.dark .dark\:border-slate-500 {
+  border-color: #505050;
+}
+
+/* Text — primary #e8e8e8, with muted steps for secondary/tertiary copy. */
+.dark .dark\:text-slate-100 {
+  color: #e8e8e8;
+}
+
+.dark .dark\:text-slate-200 {
+  color: #e8e8e8;
+}
+
+.dark .dark\:text-slate-300 {
+  color: #c9c9c9;
+}
+
+.dark .dark\:text-slate-400 {
+  color: #9a9a9a;
+}
+
+.dark .dark\:hover\:text-slate-200:hover {
+  color: #e8e8e8;
+}
+
+.dark .dark\:hover\:text-slate-400:hover {
+  color: #9a9a9a;
+}
+
+/* Dot-grid page background (dashboard). Sets only `background-image`, so it
+   layers over whatever `background-color` utility the element already carries. */
+.bg-dots {
+  background-image: radial-gradient(circle, rgba(15, 23, 42, 0.1) 1px, transparent 1px);
+  background-size: 22px 22px;
+  background-position: -11px -11px;
+}
+
+.dark .bg-dots {
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+}
+
 /* Let Vue Flow fill its parent. */
 .diagram-flow {
   width: 100%;
@@ -35,6 +142,7 @@ body,
     transform: scale(0.85);
     opacity: 0;
   }
+
   to {
     transform: scale(1);
     opacity: 1;

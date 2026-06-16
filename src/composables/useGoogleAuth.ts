@@ -85,12 +85,12 @@ export function useGoogleAuth() {
   function renderButton(el: HTMLElement, options: Record<string, unknown> = {}): void {
     window.google?.accounts.id.renderButton(el, {
       type: 'standard',
-      theme: 'outline',
+      theme: 'filled_black',
       size: 'large',
       text: 'continue_with',
       shape: 'rectangular',
       logo_alignment: 'left',
-      width: 320,
+      width: 336,
       ...options,
     })
   }
