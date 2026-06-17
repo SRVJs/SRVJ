@@ -110,6 +110,8 @@ onBeforeUnmount(() => heroObserver?.disconnect())
       <img src="/favicon.png" alt="SRVJ" class="h-10 w-12 rounded-lg shadow-sm" />
     </RouterLink>
     <div class="ml-auto flex items-center gap-3">
+      <NotificationBell />
+
       <button
         v-if="!isForced"
         type="button"

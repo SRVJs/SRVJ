@@ -111,15 +111,15 @@ async function onSubmit() {
         role="dialog"
         aria-modal="true"
         :aria-label="title"
-        class="w-full max-w-sm rounded-2xl bg-white/90 p-6 shadow-2xl backdrop-blur-xl dark:bg-[#050505]/85"
+        class="w-full max-w-sm rounded-2xl  p-6 shadow-2xl backdrop-blur-xl bg-[#050505]/85"
         @keydown.esc="emit('close')"
       >
         <div class="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h2 class="text-lg font-bold text-slate-800 dark:text-slate-100">
+            <h2 class="text-lg font-bold text-slate-100">
               {{ title }}
             </h2>
-            <p class="mt-0.5 text-sm text-slate-500 dark:text-slate-400">
+            <p class="mt-0.5 text-sm text-slate-400">
               {{
                 isRegister
                   ? "Sign up to sync your work."
@@ -130,21 +130,21 @@ async function onSubmit() {
           <button
             type="button"
             aria-label="Close"
-            class="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+            class="rounded-md p-1 text-slate-100  hover:bg-slate-700 hover:text-slate-200"
             @click="emit('close')"
           >
             <span class="i-mdi-close text-lg" aria-hidden="true" />
           </button>
         </div>
 
-        <div class="mb-4 flex rounded-lg bg-slate-100 p-1 dark:bg-white/2">
+        <div class="mb-4 flex rounded-lg p-1 bg-white/2">
           <button
             type="button"
             class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
             :class="
               !isRegister
-                ? 'bg-white text-slate-800 shadow-sm dark:bg-white/10 dark:text-white'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                ? 'shadow-sm bg-white/10 text-white'
+                : 'text-slate-400 hover:text-slate-200'
             "
             @click="switchMode('login')"
           >
@@ -155,8 +155,8 @@ async function onSubmit() {
             class="flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
             :class="
               isRegister
-                ? 'bg-white text-slate-800 shadow-sm dark:bg-white/10 dark:text-white'
-                : 'text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200'
+                ? 'shadow-sm bg-white/10 text-white'
+                : 'text-slate-400 hover:text-slate-200'
             "
             @click="switchMode('register')"
           >
@@ -166,19 +166,19 @@ async function onSubmit() {
 
         <form class="flex flex-col gap-3" @submit.prevent="onSubmit">
           <label v-if="isRegister" class="flex flex-col gap-1 text-sm">
-            <span class="font-medium text-slate-600 dark:text-slate-300">Full name</span>
+            <span class="font-medium text-slate-300">Full name</span>
             <input
               v-model="form.fullname"
               type="text"
               required
               autocomplete="name"
               placeholder="Jane Doe"
-              class="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:placeholder:text-slate-500"
+              class="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-slate-100 placeholder:text-slate-500 outline-none transition focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
             />
           </label>
 
           <label class="flex flex-col gap-1 text-sm">
-            <span class="font-medium text-slate-600 dark:text-slate-300">Email</span>
+            <span class="font-medium text-slate-300">Email</span>
             <input
               ref="emailInput"
               v-model="form.email"
@@ -186,25 +186,25 @@ async function onSubmit() {
               required
               autocomplete="email"
               placeholder="you@example.com"
-              class="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:placeholder:text-slate-500"
+              class="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-slate-100 placeholder:text-slate-500 outline-none transition focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
             />
           </label>
 
           <label class="flex flex-col gap-1 text-sm">
-            <span class="font-medium text-slate-600 dark:text-slate-300">Password</span>
+            <span class="font-medium text-slate-300">Password</span>
             <input
               v-model="form.password"
               type="password"
               required
               :autocomplete="isRegister ? 'new-password' : 'current-password'"
               placeholder="••••••••"
-              class="rounded-md border border-slate-300 bg-white px-3 py-2 text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:placeholder:text-slate-500"
+              class="rounded-md border border-white/10 bg-white/5 px-3 py-2 text-slate-100 placeholder:text-slate-500 outline-none transition focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
             />
           </label>
 
           <p
             v-if="auth.error"
-            class="flex items-center gap-1.5 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-600 dark:bg-rose-900/30 dark:text-rose-400"
+            class="flex items-center gap-1.5 rounded-md bg-rose-900/30 px-3 py-2 text-sm text-rose-400"
           >
             <span class="i-mdi-alert-circle-outline shrink-0" aria-hidden="true" />
             {{ auth.error }}
@@ -213,7 +213,7 @@ async function onSubmit() {
           <button
             type="submit"
             :disabled="auth.loading"
-            class="mt-1 inline-flex items-center justify-center gap-2 rounded-md border border-indigo-600 bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60 dark:border-indigo-500 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+            class="mt-1 inline-flex items-center justify-center gap-2 rounded-md border border-indigo-500 bg-indigo-500 px-3 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
             <span
               v-if="auth.loading"
@@ -225,11 +225,9 @@ async function onSubmit() {
         </form>
 
         <div class="my-4 flex items-center gap-3" aria-hidden="true">
-          <span class="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
-          <span class="text-xs font-medium uppercase tracking-wide text-slate-400"
-            >or</span
-          >
-          <span class="h-px flex-1 bg-slate-200 dark:bg-slate-700" />
+          <span class="h-px flex-1 bg-slate-700" />
+          <span class="text-xs font-medium uppercase tracking-wide text-slate-500">or</span>
+          <span class="h-px flex-1 bg-slate-700" />
         </div>
 
         <!-- Google sign-in. When GIS is configured, the styled button below is
@@ -238,7 +236,7 @@ async function onSubmit() {
              an ID token via onGoogleCredential. -->
         <div v-if="google.isConfigured" class="group relative">
           <div
-            class="inline-flex w-full items-center justify-center gap-2.5 rounded-lg border border-black/10 bg-black px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors group-hover:bg-[#161616] dark:border-white/15 dark:bg-[#1f1f1f] dark:group-hover:bg-[#2a2a2a]"
+            class="inline-flex w-full items-center justify-center gap-2.5 rounded-lg border border-white/10 bg-[#1f1f1f] px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors group-hover:bg-[#2a2a2a]"
           >
             <span class="i-logos-google-icon text-base" aria-hidden="true" />
             Google
@@ -253,7 +251,7 @@ async function onSubmit() {
           v-else
           type="button"
           :disabled="auth.loading"
-          class="inline-flex w-full items-center justify-center gap-2.5 rounded-lg border border-black/10 bg-black px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#161616] disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/15 dark:bg-[#1f1f1f] dark:hover:bg-[#2a2a2a]"
+          class="inline-flex w-full items-center justify-center gap-2.5 rounded-lg border border-white/10 bg-[#1f1f1f] px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#2a2a2a] disabled:cursor-not-allowed disabled:opacity-60"
           @click="auth.loginWithGoogle()"
         >
           <span class="i-logos-google-icon text-base" aria-hidden="true" />
