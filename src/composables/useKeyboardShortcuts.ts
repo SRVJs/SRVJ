@@ -19,7 +19,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
  */
 export function useKeyboardShortcuts() {
   const store = useDiagramStore()
-  const { resetTool } = useEditorTool()
+  const { resetTool, setTool } = useEditorTool()
 
   function onKeyDown(event: KeyboardEvent) {
     if (isEditableTarget(event.target)) return
@@ -36,6 +36,12 @@ export function useKeyboardShortcuts() {
     // `V` → select/cursor tool (Excalidraw shortcut).
     if (!ctrl && key === 'v') {
       resetTool()
+      return
+    }
+
+    // `P` → freehand pen tool (Excalidraw shortcut).
+    if (!ctrl && key === 'p') {
+      setTool('draw')
       return
     }
 

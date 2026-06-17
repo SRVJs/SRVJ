@@ -15,6 +15,8 @@ export type NodeVariant = 'default' | 'input' | 'output'
  *    ERD entity / attribute / relationship)
  *  - `sticky` → a Miro-style sticky note (solid fill, no border)
  *  - `text`   → a borderless text label (no fill, no handles)
+ *  - `draw`   → a freehand pen stroke (an SVG path built from `data.points`;
+ *    no fill, no border, no handles, no label)
  *  - ERD (Chen notation): `weak-entity` (double-border rectangle),
  *    `weak-relationship` (double-border diamond), `key-attribute` (ellipse,
  *    underlined label), `multivalued-attribute` (double-border ellipse),
@@ -27,6 +29,7 @@ export type NodeShape =
   | 'diamond'
   | 'sticky'
   | 'text'
+  | 'draw'
   | 'entity'
   | 'relationship'
   | 'attribute'
@@ -72,6 +75,11 @@ export interface DiagramNodeData {
   opacity: number
   /** Field rows — only used by the crow's-foot `table` shape. */
   fields?: ErdField[]
+  /**
+   * Freehand pen points — only used by the `draw` shape. Coordinates are
+   * relative to the node's top-left, so the stroke moves/resizes with the node.
+   */
+  points?: { x: number; y: number }[]
 }
 
 /**
@@ -87,6 +95,8 @@ export interface DiagramNode {
   selected?: boolean
   /** Inline size applied to the node element (e.g. `{ width: '176px', height: '72px' }`). */
   style?: Record<string, string>
+  /** Extra class on the Vue Flow node element (e.g. `vf-draw-node` for pen strokes). */
+  class?: string
 }
 
 /** Rectangle reported by the node resizer (top-left origin + size). */

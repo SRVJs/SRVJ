@@ -26,6 +26,7 @@ import type {
 } from '@/types/diagram'
 import { createId } from '@/utils/id'
 import { ANCHORS_PER_SIDE, anchorId, handleSide, type HandleSide } from '@/utils/handles'
+import { PEN_SIZE, strokeGeometry, type Pt } from '@/utils/freehand'
 import {
   DEFAULT_COLOR,
   DEFAULT_FILL_STYLE,
@@ -56,6 +57,7 @@ const SHAPES = new Set<NodeShape>([
   'diamond',
   'sticky',
   'text',
+  'draw',
   'entity',
   'relationship',
   'attribute',
@@ -88,6 +90,16 @@ function normalizeFields(value: unknown): ErdField[] {
     }))
   return fields.length > 0 ? fields : defaultFields()
 }
+/** Sanitise an arbitrary value into a valid freehand point list. */
+function normalizePoints(value: unknown): Pt[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((p): p is { x: number; y: number } =>
+      !!p && typeof p === 'object' && typeof (p as Pt).x === 'number' && typeof (p as Pt).y === 'number',
+    )
+    .map((p) => ({ x: p.x, y: p.y }))
+}
+
 const COLORS = new Set<NodeColor>(['slate', 'blue', 'green', 'yellow', 'red', 'violet'])
 const FILL_STYLES = new Set<FillStyle>(['solid', 'transparent'])
 const STROKE_STYLES = new Set<StrokeStyle>(['solid', 'dashed', 'dotted'])
@@ -120,6 +132,10 @@ function defaultStyle(shape: NodeShape): Record<string, string> {
       // Auto-size to the typed content (Excalidraw-style) — the node footprint
       // grows with the text instead of sitting inside a fixed-size rectangle.
       return { width: 'auto', height: 'auto', minWidth: '24px', minHeight: '24px' }
+    case 'draw':
+      // Freehand strokes always supply their own measured size; this is only a
+      // fallback for an (unexpected) draw node missing a style.
+      return { width: '120px', height: '120px' }
     default:
       // rectangle + weak-entity
       return { width: '176px', height: '72px' }
@@ -150,7 +166,9 @@ function buildNode(options: NewNodeOptions): DiagramNode {
       variant,
       shape,
       color: options.color ?? DEFAULT_COLOR,
-      fillStyle: options.fillStyle ?? DEFAULT_FILL_STYLE,
+      // Sticky notes are always a solid filled note; everything else follows the
+      // chosen fill (transparent by default, Excalidraw-style).
+      fillStyle: shape === 'sticky' ? 'solid' : (options.fillStyle ?? DEFAULT_FILL_STYLE),
       strokeStyle: options.strokeStyle ?? DEFAULT_STROKE_STYLE,
       strokeWidth: options.strokeWidth ?? DEFAULT_STROKE_WIDTH,
       opacity: clampOpacity(options.opacity ?? DEFAULT_OPACITY),
@@ -169,7 +187,8 @@ function normalizeNode(node: DiagramNode): DiagramNode {
     type: 'custom',
     selected: false,
     // Tables must keep an auto height (so every row + the add button show);
-    // keep any custom width but never a locked pixel height for them.
+    // keep any custom width but never a locked pixel height for them. Freehand
+    // strokes always keep their measured pixel size (the path scales to fit it).
     style:
       shape === 'table'
         ? { ...defaultStyle('table'), ...(node.style?.width ? { width: node.style.width } : {}) }
@@ -188,6 +207,8 @@ function normalizeNode(node: DiagramNode): DiagramNode {
       // Only tables keep a `fields` array; backfill it so legacy/imported
       // tables stay valid, and strip it from non-table shapes.
       ...(shape === 'table' ? { fields: normalizeFields(data.fields) } : {}),
+      // Only freehand strokes keep a `points` array.
+      ...(shape === 'draw' ? { points: normalizePoints(data.points) } : {}),
     },
   }
 }
@@ -471,6 +492,50 @@ export const useDiagramStore = defineStore('diagram', {
       this.editNodeId = node.id
     },
 
+    /**
+     * Create a freehand pen stroke from a list of flow-space points. The points
+     * are normalised to the stroke's bounding box (so it moves/resizes as a
+     * unit) and the node is positioned + sized to match the rendered outline.
+     */
+    addDrawNode(options: {
+      points: Pt[]
+      color: NodeColor
+      strokeWidth: StrokeWidth
+      opacity: number
+    }) {
+      if (options.points.length === 0) return
+      const size = PEN_SIZE[options.strokeWidth]
+      const minX = Math.min(...options.points.map((p) => p.x))
+      const minY = Math.min(...options.points.map((p) => p.y))
+      const rel = options.points.map((p) => ({ x: p.x - minX, y: p.y - minY }))
+      const geo = strokeGeometry(rel, size)
+
+      this.commit()
+      const node: DiagramNode = {
+        id: createId('node'),
+        type: 'custom',
+        // Tag the node element so its (invisible) bounding box passes clicks
+        // through — only the inked path itself is a hit target (see style.css).
+        class: 'vf-draw-node',
+        // Top-left of the rendered outline (the outline can extend past the raw
+        // points by ~size/2, hence the geo.minX/minY offset).
+        position: { x: minX + geo.minX, y: minY + geo.minY },
+        style: { width: `${Math.round(geo.width)}px`, height: `${Math.round(geo.height)}px` },
+        data: {
+          label: '',
+          variant: 'default',
+          shape: 'draw',
+          color: options.color,
+          fillStyle: 'transparent',
+          strokeStyle: 'solid',
+          strokeWidth: options.strokeWidth,
+          opacity: clampOpacity(options.opacity),
+          points: rel,
+        },
+      }
+      this.nodes.push(node)
+    },
+
     /** One-shot claim of the pending auto-edit node id (clears it). */
     takeEditNode(id: string): boolean {
       if (this.editNodeId !== id) return false
@@ -493,12 +558,19 @@ export const useDiagramStore = defineStore('diagram', {
     setNodeRect(id: string, rect: NodeRect) {
       const node = this.nodes.find((n) => n.id === id)
       if (!node) return
-      node.position = { x: rect.x, y: rect.y }
-      node.style = {
-        ...(node.style ?? {}),
-        width: `${Math.round(rect.width)}px`,
-        height: `${Math.round(rect.height)}px`,
-      }
+      this.nodes = this.nodes.map((n) =>
+        n.id === id
+          ? {
+              ...n,
+              position: { x: rect.x, y: rect.y },
+              style: {
+                ...(n.style ?? {}),
+                width: `${Math.round(rect.width)}px`,
+                height: `${Math.round(rect.height)}px`,
+              },
+            }
+          : n,
+      )
     },
 
     /** Recolour the given node ids (defaults to the current selection). */

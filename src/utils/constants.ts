@@ -34,7 +34,9 @@ export const MAX_HISTORY = 50
 export const DEFAULT_VARIANT: NodeVariant = 'default'
 export const DEFAULT_SHAPE: NodeShape = 'rectangle'
 export const DEFAULT_COLOR: NodeColor = 'slate'
-export const DEFAULT_FILL_STYLE: FillStyle = 'solid'
+// Excalidraw-style: new shapes are outline-only (the canvas shows through).
+// Sticky notes are forced solid at creation (see `buildNode`).
+export const DEFAULT_FILL_STYLE: FillStyle = 'transparent'
 export const DEFAULT_STROKE_STYLE: StrokeStyle = 'solid'
 export const DEFAULT_STROKE_WIDTH: StrokeWidth = 'medium'
 export const DEFAULT_OPACITY = 100

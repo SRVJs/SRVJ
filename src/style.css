@@ -157,18 +157,11 @@ html.dark,
   box-shadow: 0 4px 14px -4px rgba(15, 23, 42, 0.12);
 }
 
+/* Selection is shown by the resize dots (corner resize handles), the draw
+   glow, or the text dashed box — never a rectangular ring around the shape. So a
+   selected shape keeps its normal ambient shadow and just gains corner dots. */
 .diagram-shape.is-selected {
-  box-shadow:
-    0 0 0 2px #fff,
-    0 0 0 4px #6366f1,
-    0 8px 22px -8px rgba(99, 102, 241, 0.5);
-}
-
-.dark .diagram-shape.is-selected {
-  box-shadow:
-    0 0 0 2px #0f172a,
-    0 0 0 4px #818cf8,
-    0 8px 22px -8px rgba(129, 140, 248, 0.5);
+  box-shadow: 0 4px 14px -4px rgba(15, 23, 42, 0.12);
 }
 
 /* Text nodes are borderless: show a light dashed selection box, not a solid one. */
@@ -177,6 +170,42 @@ html.dark,
   outline: 1.5px dashed #6366f1;
   outline-offset: 3px;
   border-radius: 4px;
+}
+
+/* SVG shapes (rough.js hand-drawn shapes + freehand pen strokes) carry their own
+   outline; never draw a box shadow/ring around them (an ellipse/diamond would
+   otherwise sit on a rectangle). Selection is shown by the corner resize dots
+   (rough shapes) or the ink glow (freehand). */
+svg.diagram-shape,
+.sketch-mode svg.diagram-shape {
+  box-shadow: none !important;
+}
+
+/* Freehand strokes are pure ink: no shape box. On selection the stroke itself
+   gets a soft indigo glow, and resizing is exposed through corner dots only. */
+.diagram-shape.draw-shape {
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.diagram-shape.draw-shape.is-selected {
+  filter: drop-shadow(0 0 3px rgba(99, 102, 241, 0.95));
+}
+
+/* Only the inked path is a hit target. `pointer-events` is inherited, so making
+   the whole node element `none` and re-enabling just the <path> means clicking
+   blank space inside a stroke's bounding box never grabs it — you must click the
+   drawn line itself (events still bubble from the path to drive select/drag). */
+.vue-flow__node.vf-draw-node {
+  pointer-events: none;
+}
+
+.vue-flow__node.vf-draw-node .draw-shape path {
+  pointer-events: auto;
+}
+
+.vue-flow__node.vf-draw-node .vue-flow__resize-control.handle {
+  pointer-events: auto !important;
 }
 
 /* Connection handles — one per side. The visible "connection dots" were
@@ -211,10 +240,7 @@ html.dark,
 }
 
 .sketch-mode .diagram-shape.is-selected {
-  box-shadow:
-    0 0 0 2px #fff,
-    0 0 0 4px #6366f1,
-    2px 3px 0 rgba(15, 23, 42, 0.12);
+  box-shadow: 2px 3px 0 rgba(15, 23, 42, 0.12);
 }
 
 /* The classic CSS "hand-drawn box" — asymmetric corner radii. */
@@ -348,12 +374,27 @@ html.dark,
 
 /* ----------------------------------------------- Node resize handles ------- */
 
+.diagram-flow .vue-flow__node.selected,
+.diagram-flow .vue-flow__node:focus,
+.diagram-flow .vue-flow__node:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.diagram-flow .vue-flow__nodesselection-rect {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+
 .vue-flow__resize-control.handle {
-  width: 9px;
-  height: 9px;
-  border-radius: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
   background: #fff;
   border: 1.5px solid #6366f1;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.18);
 }
 
 .dark .vue-flow__resize-control.handle {
@@ -361,8 +402,13 @@ html.dark,
   border-color: #818cf8;
 }
 
+/* Hide the rectangular resize frame entirely — selection shows only the corner
+   dots (the user's "resize dots, no box" choice), Excalidraw-style. */
 .vue-flow__resize-control.line {
-  border-color: rgba(99, 102, 241, 0.45);
+  display: none !important;
+  border: 0 !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 /* ------------------------------------------------ Selection marquee box ---- */

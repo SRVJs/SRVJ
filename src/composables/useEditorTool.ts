@@ -24,9 +24,10 @@ export interface ShapeTool {
  * The active tool:
  *  - `select`  → the selection cursor
  *  - `connect` → the arrow/connector tool (click a source node, then a target)
+ *  - `draw`    → the freehand pen (drag on the canvas to ink a stroke)
  *  - `ShapeTool` → a shape to draw
  */
-export type ActiveTool = 'select' | 'connect' | ShapeTool
+export type ActiveTool = 'select' | 'connect' | 'draw' | ShapeTool
 
 // Shared module-level state so the palette and canvas agree on the tool.
 const activeTool = ref<ActiveTool>('select')
@@ -39,6 +40,7 @@ const activeOpacity = ref<number>(DEFAULT_OPACITY)
 export function useEditorTool() {
   const isSelectTool = computed(() => activeTool.value === 'select')
   const isConnectTool = computed(() => activeTool.value === 'connect')
+  const isDrawTool = computed(() => activeTool.value === 'draw')
 
   function setTool(tool: ActiveTool) {
     activeTool.value = tool
@@ -51,6 +53,11 @@ export function useEditorTool() {
   /** Toggle the arrow/connector tool on/off (off falls back to select). */
   function toggleConnect() {
     activeTool.value = activeTool.value === 'connect' ? 'select' : 'connect'
+  }
+
+  /** Toggle the freehand pen on/off (off falls back to select). */
+  function toggleDraw() {
+    activeTool.value = activeTool.value === 'draw' ? 'select' : 'draw'
   }
 
   function setColor(color: NodeColor) {
@@ -93,9 +100,11 @@ export function useEditorTool() {
     activeOpacity,
     isSelectTool,
     isConnectTool,
+    isDrawTool,
     setTool,
     resetTool,
     toggleConnect,
+    toggleDraw,
     setColor,
     setFillStyle,
     setStrokeStyle,
