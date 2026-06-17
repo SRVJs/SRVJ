@@ -1,9 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useHead } from "@unhead/vue";
+import { useRouter } from "vue-router";
 import AuthDialog from "@/components/AuthDialog.vue";
 import NavBar from "@/components/navBar.vue";
 import { useSeo } from "@/composables/useSeo";
+import { useAuthStore } from "@/stores/auth";
+import { useGoogleAuth } from "@/composables/useGoogleAuth";
 import { SITE_DESCRIPTION } from "@/utils/constants";
 
 useSeo({ title: "SRVJ — Free Online Diagram Editor & Whiteboard", path: "/" });
@@ -23,6 +26,28 @@ useHead({
 
 const root = ref<HTMLElement | null>(null);
 const authOpen = ref(false);
+
+const auth = useAuthStore();
+const google = useGoogleAuth();
+const router = useRouter();
+
+async function autoPromptGoogle() {
+  if (!google.isConfigured || auth.isAuthenticated) return;
+  try {
+    await google.init(async (credential) => {
+      try {
+        await auth.loginWithGoogleCredential(credential);
+        await router.push({ name: "dashboard" });
+      } catch {
+        // Credential rejected — surface via auth.error; fall back to dialog.
+        authOpen.value = true;
+      }
+    });
+    google.prompt();
+  } catch {
+    // GIS unavailable or blocked; the page stays usable without One Tap.
+  }
+}
 
 // ---- Features ----------------------------------------------------------
 const features = [
@@ -122,6 +147,7 @@ const year = new Date().getFullYear();
 let io: IntersectionObserver | undefined;
 
 onMounted(() => {
+  void autoPromptGoogle();
   const els = root.value
     ? Array.from(root.value.querySelectorAll<HTMLElement>(".reveal"))
     : [];
@@ -145,6 +171,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   io?.disconnect();
+  google.cancel();
 });
 </script>
 

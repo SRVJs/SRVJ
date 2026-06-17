@@ -111,7 +111,7 @@ async function onSubmit() {
         role="dialog"
         aria-modal="true"
         :aria-label="title"
-        class="w-full max-w-sm rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-[#050505]/85"
+        class="w-full max-w-sm rounded-2xl bg-white/90 p-6 shadow-2xl backdrop-blur-xl dark:bg-[#050505]/85"
         @keydown.esc="emit('close')"
       >
         <div class="mb-5 flex items-start justify-between gap-4">

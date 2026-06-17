@@ -29,6 +29,14 @@ export const API_BASE_URL = import.meta.env.VITE_API_URL as string | undefined
  * the auth dialog falls back to the server-redirect Google button.
  */
 export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined
+
+/**
+ * WebSocket URL of the CRDT (Yjs / y-websocket) presence + sync server. Live
+ * collaboration cursors connect here, joining a channel named after the room
+ * (or the diagram id). Set it via `VITE_CRDT_WS_URL` (e.g. `wss://crdt.srvj…`);
+ * when absent, presence is disabled and the editor is single-player.
+ */
+export const CRDT_WS_URL = import.meta.env.VITE_CRDT_WS_URL as string | undefined
 export const AUTOSAVE_DELAY = 500
 export const MAX_HISTORY = 50
 export const DEFAULT_VARIANT: NodeVariant = 'default'

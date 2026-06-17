@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, markRaw, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import {
   VueFlow,
@@ -22,10 +23,13 @@ import { useDarkMode } from '@/composables/useDarkMode'
 import { useEditorTool } from '@/composables/useEditorTool'
 import { PEN_SIZE, strokeGeometry } from '@/utils/freehand'
 import type { NewNodeOptions } from '@/types/diagram'
+import { usePresence } from '@/composables/usePresence'
+import { useRoomIdentity } from '@/composables/useRoomIdentity'
 import CustomNode from './CustomNode.vue'
 import CustomEdge from './CustomEdge.vue'
 import ZoomBar from './ZoomBar.vue'
 import ContextMenu, { type MenuItem } from './ContextMenu.vue'
+import PresenceCursors from './PresenceCursors.vue'
 
 const store = useDiagramStore()
 const { nodes, edges } = storeToRefs(store)
@@ -70,6 +74,44 @@ const edgeTypes = {
 }
 
 const { screenToFlowCoordinate, viewport, onConnect, onNodeClick } = useVueFlow()
+
+// ---- Live collaboration cursors (CRDT presence) -----------------------------
+// Everyone in a room broadcasts their cursor over Yjs awareness. The room is the
+// shared `?room=` id (Share button), falling back to the diagram id so opening
+// the same `/editor/:id` already puts collaborators in one channel. The local
+// user's cursor is published in flow coords; remote peers render via the overlay.
+const route = useRoute()
+const roomId = computed<string | null>(() => {
+  const room = route.query.room
+  if (typeof room === 'string' && room) return room
+  const id = route.params.diagramId
+  return typeof id === 'string' && id ? id : null
+})
+const diagramId = computed(() => {
+  const id = route.params.diagramId
+  return typeof id === 'string' && id ? id : null
+})
+const { identity, ensureOwnershipResolved } = useRoomIdentity(diagramId)
+const { peers: roomPeers, setCursor } = usePresence(roomId, identity)
+
+// Throttle cursor broadcasts to one per animation frame (awareness floods fast).
+let cursorRaf = 0
+function broadcastCursor(event: PointerEvent) {
+  if (!roomId.value || cursorRaf) return
+  const { clientX, clientY } = event
+  cursorRaf = requestAnimationFrame(() => {
+    cursorRaf = 0
+    setCursor(screenToFlowCoordinate({ x: clientX, y: clientY }))
+  })
+}
+
+function onPointerLeave() {
+  if (cursorRaf) {
+    cancelAnimationFrame(cursorRaf)
+    cursorRaf = 0
+  }
+  setCursor(null)
+}
 
 // ---- Arrow / connector tool -------------------------------------------------
 // With the arrow tool active, click a source node then a target node to draw an
@@ -155,6 +197,8 @@ function onKeyUp(event: KeyboardEvent) {
 onMounted(() => {
   window.addEventListener('keydown', onKeyDown)
   window.addEventListener('keyup', onKeyUp)
+  // Pull the project list (if needed) so the owner's cursor resolves to "owner".
+  ensureOwnershipResolved()
 })
 
 onBeforeUnmount(() => {
@@ -241,6 +285,8 @@ function onPointerDown(event: PointerEvent) {
 }
 
 function onPointerMove(event: PointerEvent) {
+  // Share the pointer with the room on every move (hover, drag, or draw).
+  broadcastCursor(event)
   if (isInking.value) {
     inkClient.value = [...inkClient.value, { x: event.clientX, y: event.clientY }]
     return
@@ -426,6 +472,7 @@ function onMenuSelect(key: string) {
     @pointerdown.capture="onPointerDown"
     @pointermove.capture="onPointerMove"
     @pointerup.capture="onPointerUp"
+    @pointerleave="onPointerLeave"
   >
     <!-- Hand-drawn wobble filter, referenced by edge paths in sketch mode
          (Ref-2 Excalidraw look). Lives off-screen; only the def matters. -->
@@ -537,6 +584,9 @@ function onMenuSelect(key: string) {
       {{ connectSource ? 'Click the target shape to connect' : 'Click a shape to start the arrow' }}
       <span class="opacity-60">· Esc to exit</span>
     </div>
+
+    <!-- Live collaboration cursors of everyone else in the room. -->
+    <PresenceCursors :peers="roomPeers" :viewport="viewport" />
 
     <!-- Right-click context menu (z-order / flip / link / duplicate / lock). -->
     <ContextMenu
