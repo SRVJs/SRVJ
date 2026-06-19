@@ -358,9 +358,11 @@ onMounted(() => {
       @pointerdown.stop
     />
     <!-- Suppress the resize frame on text shapes while typing — otherwise its
-         line / corner squares look like a box around the text. -->
+         line / corner squares look like a box around the text. Freehand pen
+         strokes are never resizable: they keep the exact position + size they
+         were drawn at (resizing would stretch/distort the ink). -->
     <NodeResizer
-      v-if="props.selected && !(shape === 'text' && editing)"
+      v-if="props.selected && shape !== 'draw' && !(shape === 'text' && editing)"
       :min-width="60"
       :min-height="36"
       :node-id="props.id"

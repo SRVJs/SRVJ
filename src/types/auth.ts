@@ -13,6 +13,8 @@ export interface ApiEnvelope<T> {
   error?: boolean
   message: string
   data: T
+  /** Optional list-pagination metadata returned alongside `data` by paged endpoints. */
+  pagination?: unknown
 }
 
 /** Authenticated user profile, as returned by `GET /user/me`. */

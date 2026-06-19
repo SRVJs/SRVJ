@@ -1,12 +1,12 @@
 import { ref } from 'vue'
-import { apiFetch } from '@/utils/api'
+import { apiFetchEnvelope } from '@/utils/api'
 import { useAuthStore } from '@/stores/auth'
 import { API_BASE_URL } from '@/utils/constants'
 
 /**
- * TEST-ONLY notifications harness for the SSE endpoints:
+ * Notifications feed backed by the SSE endpoints:
  *   GET  /notification/stream   — Server-Sent Events feed
- *   POST /notification/publish  — body { title, message }
+ *   GET  /notification/list     — existing notifications (seeds the feed)
  *
  * The stream is consumed with `fetch` + a `ReadableStream` reader (not the
  * native `EventSource`) so the bearer access token can ride along in an
@@ -28,11 +28,29 @@ export interface NotificationItem {
 
 export type NotificationStatus = 'idle' | 'connecting' | 'open' | 'error'
 
+/** Server pagination metadata returned alongside the notifications page. */
+export interface Pagination {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+  hasNextPage: boolean
+  hasPrevPage: boolean
+}
+
+/** How many notifications to request per page (and per "load more"). */
+const PAGE_LIMIT = 5
+
 const notifications = ref<NotificationItem[]>([])
 const status = ref<NotificationStatus>('idle')
 const unread = ref(0)
 const lastError = ref<string | null>(null)
 const loadingList = ref(false)
+/** True while a "load more" (next page) fetch is in flight. */
+const loadingMore = ref(false)
+/** Last page successfully loaded, and whether the server has more after it. */
+const page = ref(1)
+const hasNextPage = ref(false)
 
 let controller: AbortController | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
@@ -45,13 +63,52 @@ function push(item: NotificationItem) {
   unread.value += 1
 }
 
-/** The notification object shape returned by /publish, /list, and the stream. */
+/** The notification object shape returned by /list and the stream. */
 interface RawNotification {
   id?: string
   type?: string
   title?: string
   message?: string
   createdAt?: string
+}
+
+/** Find the notifications array under any of the common keys (or a bare array). */
+function pickArray(value: unknown): RawNotification[] {
+  if (Array.isArray(value)) return value as RawNotification[]
+  if (value && typeof value === 'object') {
+    const obj = value as Record<string, unknown>
+    for (const key of ['data', 'items', 'notifications', 'results', 'rows', 'list']) {
+      if (Array.isArray(obj[key])) return obj[key] as RawNotification[]
+    }
+  }
+  return []
+}
+
+/** Find the `pagination` object in the first candidate that has one. */
+function pickPagination(...candidates: unknown[]): Pagination | undefined {
+  for (const c of candidates) {
+    if (c && typeof c === 'object') {
+      const p = (c as Record<string, unknown>).pagination
+      if (p && typeof p === 'object') return p as Pagination
+    }
+  }
+  return undefined
+}
+
+/**
+ * GET one page of notifications (newest first) and map it to display items.
+ * Reads the whole envelope so `pagination` is found whether the server returns
+ * it as a sibling of `data` (`{ data: [...], pagination }`) or nested inside it
+ * (`{ data: { data: [...], pagination } }`).
+ */
+async function fetchPage(p: number): Promise<{ items: NotificationItem[]; pagination?: Pagination }> {
+  const envelope = await apiFetchEnvelope<unknown>(
+    `/notification/list?page=${p}&limit=${PAGE_LIMIT}`,
+    { token: useAuthStore().token },
+  )
+  const list = pickArray(envelope.data)
+  const pagination = pickPagination(envelope, envelope.data)
+  return { items: list.map((n) => toItem(n)), pagination }
 }
 
 /** Normalise a server notification object into a display item. */
@@ -159,17 +216,15 @@ function disconnect() {
   status.value = 'idle'
 }
 
-/** GET the existing notifications and seed the feed (newest first). */
+/** GET the first page of notifications (limit {@link PAGE_LIMIT}) and seed the feed. */
 async function fetchList() {
   if (!API_BASE_URL) return
   loadingList.value = true
   try {
-    const data = await apiFetch<RawNotification[]>('/notification/list', {
-      token: useAuthStore().token,
-    })
-    const items = (Array.isArray(data) ? data : []).map((n) => toItem(n))
-    items.sort((a, b) => b.receivedAt - a.receivedAt)
-    notifications.value = items.slice(0, 50)
+    const { items, pagination } = await fetchPage(1)
+    notifications.value = items
+    page.value = pagination?.page ?? 1
+    hasNextPage.value = pagination?.hasNextPage ?? false
   } catch (err) {
     lastError.value = err instanceof Error ? err.message : 'Failed to load notifications'
   } finally {
@@ -177,13 +232,26 @@ async function fetchList() {
   }
 }
 
-/** POST a test notification to the publish endpoint. */
-async function publish(payload: { title: string; message: string }) {
-  await apiFetch('/notification/publish', {
-    method: 'POST',
-    body: payload,
-    token: useAuthStore().token,
-  })
+/**
+ * Fetch the next page and append it to the feed (infinite scroll). No-op when a
+ * load is already running or the server has no further pages. New items are
+ * deduped by id so a live SSE push doesn't show twice.
+ */
+async function loadMore() {
+  if (!API_BASE_URL || loadingList.value || loadingMore.value || !hasNextPage.value) return
+  loadingMore.value = true
+  try {
+    const next = page.value + 1
+    const { items, pagination } = await fetchPage(next)
+    const seen = new Set(notifications.value.map((n) => n.id))
+    notifications.value = [...notifications.value, ...items.filter((n) => !seen.has(n.id))]
+    page.value = pagination?.page ?? next
+    hasNextPage.value = pagination?.hasNextPage ?? false
+  } catch (err) {
+    lastError.value = err instanceof Error ? err.message : 'Failed to load notifications'
+  } finally {
+    loadingMore.value = false
+  }
 }
 
 function markAllRead() {
@@ -202,10 +270,12 @@ export function useNotifications() {
     unread,
     lastError,
     loadingList,
+    loadingMore,
+    hasNextPage,
     connect,
     disconnect,
     fetchList,
-    publish,
+    loadMore,
     markAllRead,
     clear,
   }

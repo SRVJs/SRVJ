@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useNotifications } from '@/composables/useNotifications'
 
 /**
- * TEST-ONLY notifications widget for the in-app header. Opens a live SSE feed
- * (`/notification/stream`) on mount and offers a small form to POST test
- * notifications to `/notification/publish`. Purely a harness for exercising the
- * backend endpoints — not a finished notifications UX.
+ * Notifications widget for the in-app header. Opens a live SSE feed
+ * (`/notification/stream`) on mount, seeds it with the existing list, and shows
+ * the feed in a dropdown with an unread badge + a connection status dot.
  */
 const {
   notifications,
@@ -14,19 +13,20 @@ const {
   unread,
   lastError,
   loadingList,
+  loadingMore,
+  hasNextPage,
   connect,
   disconnect,
   fetchList,
-  publish,
+  loadMore,
   markAllRead,
   clear,
 } = useNotifications()
 
 const open = ref(false)
-const title = ref('Test notification')
-const message = ref('Hello from SRVJ 👋')
-const sending = ref(false)
-const sendError = ref<string | null>(null)
+
+// The scrollable feed container (only in the DOM while the dropdown is open).
+const feedRef = ref<HTMLElement | null>(null)
 
 const statusColor: Record<string, string> = {
   idle: 'bg-slate-400',
@@ -40,18 +40,39 @@ function toggle() {
   if (open.value) markAllRead()
 }
 
-async function send() {
-  if (!title.value.trim() && !message.value.trim()) return
-  sending.value = true
-  sendError.value = null
-  try {
-    await publish({ title: title.value, message: message.value })
-  } catch (err) {
-    sendError.value = err instanceof Error ? err.message : 'Failed to publish'
-  } finally {
-    sending.value = false
+// Pull the next page when the feed is scrolled within ~80px of the bottom.
+function onScroll() {
+  const el = feedRef.value
+  if (!el) return
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) void loadMore()
+}
+
+// A scroll handler only fires when the list actually overflows — but the first
+// page (5 short items) often doesn't fill the panel, so there's nothing to
+// scroll. Keep loading pages until the feed overflows (or there are no more),
+// so there's always something to scroll and short feeds still show everything.
+async function fillUntilScrollable() {
+  await nextTick()
+  let guard = 0
+  while (
+    open.value &&
+    hasNextPage.value &&
+    !loadingMore.value &&
+    !loadingList.value &&
+    guard++ < 20
+  ) {
+    const el = feedRef.value
+    // Stop once the content overflows the container (a scrollbar exists).
+    if (el && el.scrollHeight > el.clientHeight + 4) break
+    await loadMore()
+    await nextTick()
   }
 }
+
+// Top up whenever the dropdown opens or a fresh list finishes loading.
+watch([open, loadingList], () => {
+  if (open.value && !loadingList.value) void fillUntilScrollable()
+})
 
 function relativeTime(ts: number): string {
   return new Date(ts).toLocaleTimeString()
@@ -69,7 +90,7 @@ onBeforeUnmount(() => disconnect())
     <button
       type="button"
       :aria-label="`Notifications (${status})`"
-      title="Notifications (test)"
+      title="Notifications"
       class="relative inline-flex items-center rounded-md border border-slate-300 bg-white px-2.5 py-1.5 text-base shadow-sm hover:bg-slate-100 dark:border-slate-600 dark:bg-slate-800 dark:hover:bg-slate-700"
       @click="toggle"
     >
@@ -93,11 +114,9 @@ onBeforeUnmount(() => disconnect())
     >
       <!-- header -->
       <div class="flex items-center justify-between border-b border-slate-200 px-3 py-2 dark:border-slate-700">
-        <div class="flex items-center gap-2">
-          <span class="text-sm font-semibold text-slate-800 dark:text-slate-100">Notifications</span>
-          <span class="text-[11px] text-slate-400">test</span>
-        </div>
+        <span class="text-sm font-semibold text-slate-800 dark:text-slate-100">Notifications</span>
         <button
+          v-if="notifications.length"
           type="button"
           class="text-xs text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
           @click="clear"
@@ -106,32 +125,8 @@ onBeforeUnmount(() => disconnect())
         </button>
       </div>
 
-      <!-- publish test form -->
-      <form class="space-y-2 border-b border-slate-200 px-3 py-2.5 dark:border-slate-700" @submit.prevent="send">
-        <input
-          v-model="title"
-          type="text"
-          placeholder="Title"
-          class="w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-        />
-        <input
-          v-model="message"
-          type="text"
-          placeholder="Message"
-          class="w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-        />
-        <button
-          type="submit"
-          :disabled="sending"
-          class="w-full rounded bg-indigo-600 px-2 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-60"
-        >
-          {{ sending ? 'Publishing…' : 'Publish test notification' }}
-        </button>
-        <p v-if="sendError" class="text-xs text-red-500">{{ sendError }}</p>
-      </form>
-
       <!-- live feed -->
-      <div class="max-h-64 overflow-y-auto">
+      <div ref="feedRef" class="max-h-80 overflow-y-auto" @scroll="onScroll">
         <p v-if="lastError && status === 'error'" class="px-3 py-2 text-xs text-red-500">
           Stream error: {{ lastError }}
         </p>
@@ -161,6 +156,16 @@ onBeforeUnmount(() => disconnect())
             <p class="text-sm text-slate-600 dark:text-slate-300">{{ n.message }}</p>
           </li>
         </ul>
+
+        <!-- infinite-scroll footer: spinner while loading the next page, or an
+             end marker once everything is loaded -->
+        <p v-if="loadingMore" class="px-3 py-3 text-center text-xs text-slate-400">Loading more…</p>
+        <p
+          v-else-if="!loadingList && !hasNextPage && notifications.length"
+          class="px-3 py-3 text-center text-[11px] text-slate-300 dark:text-slate-100"
+        >
+          That's everything
+        </p>
       </div>
     </div>
   </div>

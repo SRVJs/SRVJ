@@ -598,6 +598,11 @@ export const useDiagramStore = defineStore('diagram', {
         // Tag the node element so its (invisible) bounding box passes clicks
         // through — only the inked path itself is a hit target (see style.css).
         class: 'vf-draw-node',
+        // Freehand strokes are fixed ink: never draggable and never resizable
+        // (see CustomNode) so they keep the exact position + size they were drawn
+        // at. They stay *selectable* though, so a stroke can be clicked and
+        // deleted (Del / right-click → Delete).
+        draggable: false,
         // Top-left of the rendered outline (the outline can extend past the raw
         // points by ~size/2, hence the geo.minX/minY offset).
         position: { x: minX + geo.minX, y: minY + geo.minY },

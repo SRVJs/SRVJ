@@ -39,7 +39,12 @@ function refreshToken(): Promise<string | null> {
   return refreshInFlight
 }
 
-async function rawFetch<T>(path: string, method: string, body: unknown, token: string | null | undefined): Promise<T> {
+async function rawFetchEnvelope<T>(
+  path: string,
+  method: string,
+  body: unknown,
+  token: string | null | undefined,
+): Promise<ApiEnvelope<T>> {
   const isMultipart = typeof FormData !== 'undefined' && body instanceof FormData
 
   const headers: Record<string, string> = {}
@@ -73,14 +78,17 @@ async function rawFetch<T>(path: string, method: string, body: unknown, token: s
     )
   }
 
-  return envelope.data
+  return envelope
 }
 
-export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, token, skipAuthRefresh = false } = options
-
+/** Run `op`, and on a single 401 transparently refresh the token and retry once. */
+async function withRefresh<R>(
+  token: string | null | undefined,
+  skipAuthRefresh: boolean,
+  op: (token: string | null | undefined) => Promise<R>,
+): Promise<R> {
   try {
-    return await rawFetch<T>(path, method, body, token)
+    return await op(token)
   } catch (error) {
     const canRetry = error instanceof ApiError && error.status === 401 && token != null && !skipAuthRefresh
     if (!canRetry) throw error
@@ -88,6 +96,24 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     const freshToken = await refreshToken()
     if (!freshToken) throw error
 
-    return rawFetch<T>(path, method, body, freshToken)
+    return op(freshToken)
   }
+}
+
+/** The common case: unwrap and return just the envelope's `data` payload. */
+export async function apiFetch<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const { method = 'GET', body, token, skipAuthRefresh = false } = options
+  const envelope = await withRefresh(token, skipAuthRefresh, (t) =>
+    rawFetchEnvelope<T>(path, method, body, t),
+  )
+  return envelope.data
+}
+
+/**
+ * Like {@link apiFetch} but returns the *whole* envelope, so callers can read
+ * sibling fields (e.g. `pagination`) that live next to `data` rather than inside it.
+ */
+export async function apiFetchEnvelope<T>(path: string, options: RequestOptions = {}): Promise<ApiEnvelope<T>> {
+  const { method = 'GET', body, token, skipAuthRefresh = false } = options
+  return withRefresh(token, skipAuthRefresh, (t) => rawFetchEnvelope<T>(path, method, body, t))
 }
