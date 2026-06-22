@@ -18,7 +18,7 @@ const store = useDiagramStore()
 
 const editing = ref(false)
 const draft = ref('')
-const inputRef = ref<HTMLInputElement | null>(null)
+const inputRef = ref<HTMLInputElement | HTMLTextAreaElement | null>(null)
 // Briefly true for nodes that were just created via the palette / draw —
 // drives the Excalidraw-style scale-in animation. Stays unset for nodes
 // restored from a snapshot or recreated by undo/redo, so those don't pop.
@@ -231,28 +231,59 @@ function focusInput() {
   inputRef.value?.select()
 }
 
-async function startEditing() {
+// While true, a `blur` on the label input is treated as spurious (Vue Flow
+// grabbing focus right after the creating pointer-up) and is ignored — we
+// refocus instead of committing, so a just-placed node opens straight into
+// typing. Cleared shortly after, so a real click-away then commits normally.
+const autoEditGrace = ref(false)
+
+// Auto-grow the text-shape textarea by tracking content: a row per line and a
+// column count from the longest line (min 4, so a fresh caret has room).
+const textRows = computed(() => Math.max(draft.value.split('\n').length, 1))
+const textCols = computed(() =>
+  Math.max(...draft.value.split('\n').map((line) => line.length), 4),
+)
+
+async function startEditing(autoFocusGrace = false) {
   if (shape.value === 'draw') return // freehand strokes carry no label
   if (isLocked.value) return // locked nodes can't be edited
   if (editing.value) return // already editing — don't discard the in-progress draft
   draft.value = props.data.label
   editing.value = true
+  if (autoFocusGrace) {
+    autoEditGrace.value = true
+    setTimeout(() => (autoEditGrace.value = false), 350)
+  }
   await nextTick()
   focusInput()
-  // When a node is created by the canvas drag/click, Vue Flow processes the same
-  // `pointerup` to select it *after* this — rewriting the node array and stealing
-  // focus from the input we just focused. Re-assert focus on the next frame so a
-  // freshly placed text/shape node opens straight into typing (no extra click).
-  requestAnimationFrame(() => {
-    if (editing.value && document.activeElement !== inputRef.value) focusInput()
-  })
+}
+
+/**
+ * `blur` on the label input. Right after a node is created, Vue Flow processes
+ * the same pointer-up to select it and steals focus — firing a blur before the
+ * user can type. During the brief post-creation grace we refocus instead of
+ * committing; otherwise a genuine click-away commits the label.
+ */
+function onLabelBlur() {
+  if (autoEditGrace.value && editing.value) {
+    requestAnimationFrame(focusInput)
+    return
+  }
+  commitEditing()
 }
 
 function commitEditing() {
   if (!editing.value) return
-  // Allow clearing to empty — a node isn't forced to carry a word.
-  store.updateNodeLabel(props.id, draft.value.trim())
   editing.value = false
+  const text = draft.value.trim()
+  // Excalidraw-style: a text element finished with no content is discarded
+  // rather than left on the canvas as an empty box. Other shapes keep their
+  // (possibly empty) label — the shape itself is the artefact.
+  if (shape.value === 'text' && text === '') {
+    store.removeNode(props.id)
+    return
+  }
+  store.updateNodeLabel(props.id, text)
 }
 
 function cancelEditing() {
@@ -338,7 +369,7 @@ function removeField(field: ErdField) {
 onMounted(() => {
   if (store.takeEditNode(props.id)) {
     justCreated.value = true
-    startEditing()
+    startEditing(true)
   }
 })
 </script>
@@ -349,7 +380,7 @@ onMounted(() => {
     :class="{ 'node-pop': justCreated }"
     :style="{ transform: flipTransform }"
     title="Double-click to edit"
-    @dblclick.stop="startEditing"
+    @dblclick.stop="startEditing()"
   >
     <!-- Lock badge (top-left) — right-click → Unlock to release it. -->
     <span
@@ -439,33 +470,37 @@ onMounted(() => {
           {{ variantBadge }}
         </span>
 
+        <!-- Text shape: a borderless multi-line textarea so typing feels like
+             writing directly on the canvas (Excalidraw-style). Enter inserts a
+             newline; Escape / click-away finishes (an empty result is discarded
+             in commitEditing). `rows`/`cols` track the content so it grows. -->
+        <textarea
+          v-if="editing && shape === 'text'"
+          ref="inputRef"
+          v-model="draft"
+          :rows="textRows"
+          :cols="textCols"
+          class="resize-none overflow-hidden whitespace-pre border-0 bg-transparent px-0 py-0 text-left text-sm font-semibold leading-snug outline-none"
+          :class="labelClasses"
+          @keydown.esc.prevent="commitEditing"
+          @blur="onLabelBlur"
+        />
+        <!-- Other shapes: single-line label typed directly on the shape fill. -->
         <input
-          v-if="editing"
+          v-else-if="editing"
           ref="inputRef"
           v-model="draft"
           type="text"
-          :size="shape === 'text' ? Math.max(draft.length || 4, 4) : undefined"
-          class="text-sm font-semibold outline-none"
-          :class="[
-            labelClasses,
-            shape === 'text'
-              // Borderless / transparent so typing a text shape feels like
-              // writing directly on the canvas — no input box around it.
-              // `size` attribute drives width so the input grows with content.
-              ? 'border-0 bg-transparent px-0 py-0 text-left'
-              // Other shapes: also borderless + transparent so the label is typed
-              // directly on the shape fill (no boxed input around it). The palette
-              // text colour (labelClasses) keeps it readable on the fill.
-              : 'w-full border-0 bg-transparent px-1.5 py-0.5 text-center',
-          ]"
+          class="w-full border-0 bg-transparent px-1.5 py-0.5 text-center text-sm font-semibold outline-none"
+          :class="labelClasses"
           @keydown.enter.prevent="commitEditing"
           @keydown.esc.prevent="cancelEditing"
-          @blur="commitEditing"
+          @blur="onLabelBlur"
         />
         <div
           v-else
           class="cursor-text select-none break-words text-sm font-semibold leading-snug"
-          :class="[labelClasses, shape === 'text' ? '' : 'min-h-[1.25rem]']"
+          :class="[labelClasses, shape === 'text' ? 'whitespace-pre-wrap text-left' : 'min-h-[1.25rem]']"
         >
           {{ props.data.label }}
         </div>
@@ -486,7 +521,7 @@ onMounted(() => {
       <div
         class="erd-table__header flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-bold text-white"
         :class="palette.header"
-        @dblclick.stop="startEditing"
+        @dblclick.stop="startEditing()"
       >
         <span class="i-mdi-table-large shrink-0 text-base opacity-90" aria-hidden="true" />
         <input
@@ -497,7 +532,7 @@ onMounted(() => {
           class="w-full border-0 bg-transparent font-bold text-white outline-none placeholder:text-white/60"
           @keydown.enter.prevent="commitEditing"
           @keydown.esc.prevent="cancelEditing"
-          @blur="commitEditing"
+          @blur="onLabelBlur"
         />
         <span v-else class="truncate">{{ props.data.label || 'Entity' }}</span>
       </div>

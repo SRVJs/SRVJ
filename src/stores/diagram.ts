@@ -640,6 +640,18 @@ export const useDiagramStore = defineStore('diagram', {
       )
     },
 
+    /**
+     * Remove a single node (and any edges touching it). Used to discard an
+     * empty text node when its edit finishes blank — Excalidraw-style, a text
+     * element with no content isn't left behind on the canvas.
+     */
+    removeNode(id: string) {
+      if (!this.nodes.some((n) => n.id === id)) return
+      this.commit()
+      this.nodes = this.nodes.filter((n) => n.id !== id)
+      this.edges = this.edges.filter((e) => e.source !== id && e.target !== id)
+    },
+
     /** Apply a new position + size to a node (used while resizing). */
     setNodeRect(id: string, rect: NodeRect) {
       const node = this.nodes.find((n) => n.id === id)
