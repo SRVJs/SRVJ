@@ -43,7 +43,7 @@ onBeforeUnmount(() => heroObserver?.disconnect())
   >
     <nav class="mx-auto flex max-w-[1180px] items-center justify-between px-6 py-4">
       <a href="#top" aria-label="SRVJ home" class="flex items-center gap-2.5 no-underline">
-        <img src="/favicon.png" alt="" class="h-9.5 w-11.5 rounded-lg" />
+        <img src="/logo-mark.png" alt="" width="46" height="38" class="h-9.5 w-11.5 rounded-lg" />
       </a>
       <div class="flex items-center gap-3 sm:gap-6">
         <a
@@ -55,11 +55,6 @@ onBeforeUnmount(() => heroObserver?.disconnect())
           href="#usecases"
           :class="['hidden text-[14.5px] font-medium no-underline transition-colors md:inline', linkClass]"
           >Use cases</a
-        >
-        <a
-          href="#compare"
-          :class="['hidden text-[14.5px] font-medium no-underline transition-colors md:inline', linkClass]"
-          >Compare</a
         >
         <button
           type="button"
@@ -78,7 +73,7 @@ onBeforeUnmount(() => heroObserver?.disconnect())
     class="sticky top-0 z-20 flex items-center gap-3 border-b border-slate-200 px-4 py-2.5 shadow-lg shadow-black/10 backdrop-blur-sm bg-white/75 dark:border-slate-700 dark:bg-black/60 dark:shadow-black/40"
   >
     <RouterLink to="/" aria-label="SRVJ home" class="mr-1 flex shrink-0 items-center gap-2">
-      <img src="/favicon.png" alt="" class="h-10 w-12 rounded-lg shadow-sm" />
+      <img src="/logo-mark.png" alt="" width="48" height="40" class="h-10 w-12 rounded-lg shadow-sm" />
     </RouterLink>
     <div class="ml-auto flex items-center gap-3">
       <NotificationBell />

@@ -56,6 +56,15 @@ export const routes: RouteRecordRaw[] = [
     component: () => import('@/views/ResetPasswordView.vue'),
   },
   {
+    // Concrete (non-parametric) path so `vite-ssg` pre-renders it to
+    // `dist/404.html` — Vercel serves that file with a real `404` status for
+    // any request that matches neither a static file nor a `vercel.json`
+    // rewrite, instead of falling through to the SPA shell with a `200`.
+    path: '/404',
+    name: 'not-found-static',
+    component: () => import('@/views/NotFoundView.vue'),
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'not-found',
     component: () => import('@/views/NotFoundView.vue'),

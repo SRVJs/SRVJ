@@ -5,8 +5,10 @@ import NavBar from '@/components/navBar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useDarkMode } from '@/composables/useDarkMode'
 import { useSeo } from '@/composables/useSeo'
+import { useAppFonts } from '@/composables/useAppFonts'
 
 useSeo({ title: 'Reset password | SRVJ', path: '/app/reset-password', noindex: true })
+useAppFonts()
 
 const route = useRoute()
 const router = useRouter()

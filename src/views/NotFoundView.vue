@@ -2,8 +2,10 @@
 import { onMounted } from 'vue'
 import { useDarkMode } from '@/composables/useDarkMode'
 import { useSeo } from '@/composables/useSeo'
+import { useAppFonts } from '@/composables/useAppFonts'
 
 useSeo({ title: 'Page not found | SRVJ', noindex: true })
+useAppFonts()
 
 const { init: initDarkMode } = useDarkMode()
 
@@ -18,7 +20,7 @@ onMounted(() => {
   >
     <div class="i-mdi-vector-polyline text-6xl text-slate-400 dark:text-slate-600" />
     <div>
-      <p class="text-7xl font-bold text-slate-800 dark:text-slate-100">404</p>
+      <h1 class="text-7xl font-bold text-slate-800 dark:text-slate-100">404</h1>
       <p class="mt-2 text-lg text-slate-600 dark:text-slate-400">
         This page took a wrong turn off the canvas.
       </p>

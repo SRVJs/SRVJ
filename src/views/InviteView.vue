@@ -7,12 +7,14 @@ import AuthDialog from '@/components/AuthDialog.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useDarkMode } from '@/composables/useDarkMode'
 import { useSeo } from '@/composables/useSeo'
+import { useAppFonts } from '@/composables/useAppFonts'
 import { ApiError } from '@/utils/api'
 import { acceptInvite, decodeInviteProjectId, getInvite, isInviteExpired } from '@/utils/projectsApi'
 import type { InviteResponse } from '@/utils/projectsApi'
 import type { ProjectInvite } from '@/types/project'
 
 useSeo({ title: 'Project invitation | SRVJ', path: '/app/invite', noindex: true })
+useAppFonts()
 
 const route = useRoute()
 const router = useRouter()

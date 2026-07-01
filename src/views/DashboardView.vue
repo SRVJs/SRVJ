@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useProjectsStore } from '@/stores/projects'
 import { useDarkMode } from '@/composables/useDarkMode'
 import { useSeo } from '@/composables/useSeo'
+import { useAppFonts } from '@/composables/useAppFonts'
 import {
   PROJECT_VISIBILITIES,
   type Project,
@@ -16,7 +17,8 @@ import {
 } from '@/types/project'
 import type { InviteRole } from '@/utils/projectsApi'
 
-useSeo({ title: 'Your projects | SRVJ', path: '/dashboard', noindex: true })
+useSeo({ title: 'Your projects | SRVJ', path: '/el/projects', noindex: true })
+useAppFonts()
 
 const router = useRouter()
 const auth = useAuthStore()

@@ -8,8 +8,10 @@ import { useEditorTool } from '@/composables/useEditorTool'
 import { useDarkMode } from '@/composables/useDarkMode'
 import { useSketchMode } from '@/composables/useSketchMode'
 import { useSeo } from '@/composables/useSeo'
+import { useAppFonts } from '@/composables/useAppFonts'
 import { useDiagramStore } from '@/stores/diagram'
 import { DEMO_STORAGE_KEY } from '@/utils/constants'
+import '@/vue-flow-styles'
 
 /**
  * Public, sign-in-free **pen-only** demo of the editor: the freehand pen is the
@@ -18,7 +20,8 @@ import { DEMO_STORAGE_KEY } from '@/utils/constants'
  *
  * Vue Flow is DOM-only, so the canvas is wrapped in `ClientOnly`. It's `noindex`.
  */
-useSeo({ title: 'Demo | SRVJ Diagram Editor', noindex: true })
+useSeo({ title: 'Demo | SRVJ Diagram Editor', path: '/app/demo', noindex: true })
+useAppFonts()
 
 const store = useDiagramStore()
 const { canUndo, canRedo } = storeToRefs(store)
@@ -53,7 +56,7 @@ onBeforeUnmount(() => setForcedTheme(null))
       <header
         class="flex items-center gap-3 border-b border-slate-200 bg-white/85 px-4 py-2 backdrop-blur dark:border-slate-700 dark:bg-slate-800/85"
       >
-        <img src="/favicon.png" alt="" class="h-9 w-11 rounded-lg shadow-sm" />
+        <img src="/logo-mark.png" alt="" width="44" height="36" class="h-9 w-11 rounded-lg shadow-sm" />
         <span
           class="ml-1 rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-semibold text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300"
         > demo

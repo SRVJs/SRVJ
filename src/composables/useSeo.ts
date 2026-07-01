@@ -4,7 +4,9 @@ import { SITE_URL } from '@/utils/constants'
 interface SeoOptions {
   /** Document title for the route. */
   title: string
-  /** Path of the canonical URL (e.g. `/`). Defaults to the site root. */
+  /** Path of the canonical URL (e.g. `/`). Omit for routes with no stable
+   *  canonical (e.g. per-user pages, the 404 page) — no canonical link or
+   *  `og:url` is emitted rather than silently defaulting to the site root. */
   path?: string
   /** When true, emit `noindex, nofollow` (e.g. the 404 page). */
   noindex?: boolean
@@ -16,14 +18,14 @@ interface SeoOptions {
  * canonical link, and the robots directive; the shared social/Open Graph tags
  * live in `index.html`.
  */
-export function useSeo({ title, path = '/', noindex = false }: SeoOptions) {
+export function useSeo({ title, path, noindex = false }: SeoOptions) {
   useHead({
     title,
-    link: [{ rel: 'canonical', href: `${SITE_URL}${path}` }],
+    link: path ? [{ rel: 'canonical', href: `${SITE_URL}${path}` }] : [],
     meta: [
       { name: 'robots', content: noindex ? 'noindex, nofollow' : 'index, follow' },
       { property: 'og:title', content: title },
-      { property: 'og:url', content: `${SITE_URL}${path}` },
+      ...(path ? [{ property: 'og:url', content: `${SITE_URL}${path}` }] : []),
     ],
   })
 }

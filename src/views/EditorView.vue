@@ -12,10 +12,13 @@ import { useKeyboardShortcuts } from '@/composables/useKeyboardShortcuts'
 import { useDarkMode } from '@/composables/useDarkMode'
 import { useSketchMode } from '@/composables/useSketchMode'
 import { useSeo } from '@/composables/useSeo'
+import { useAppFonts } from '@/composables/useAppFonts'
 import { useAuthStore } from '@/stores/auth'
 import { COLLAB_WS_URL } from '@/utils/constants'
+import '@/vue-flow-styles'
 
 useSeo({ title: 'Editor | SRVJ', noindex: true })
+useAppFonts()
 
 const route = useRoute()
 const auth = useAuthStore()

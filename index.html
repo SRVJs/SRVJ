@@ -9,18 +9,21 @@
   <title>SRVJ | Free Online Diagram Editor &amp; Whiteboard</title>
   <meta name="description"
     content="SRVJ is a free online diagram editor and whiteboard. Build flowcharts, ERDs, mind maps and sticky notes on an infinite canvas, right in your browser." />
-  <meta name="keywords"
-    content="SRVJ, srvj diagram editor, srvj whiteboard, diagram editor, online whiteboard, flowchart maker, draw.io alternative, excalidraw, miro, flow diagram, sticky notes, mind map, ERD tool, free diagram tool, elrefai" />
   <meta name="author" content="Mohammed Mostafa" />
   <meta name="application-name" content="SRVJ" />
   <meta name="apple-mobile-web-app-title" content="SRVJ" />
   <meta name="theme-color" content="#6366f1" />
   <meta name="color-scheme" content="light dark" />
-  <link rel="canonical" href="https://srvj.elrefai.me/" />
+  <!-- No static canonical here on purpose: every route sets its own via
+       `useSeo()`, and a hardcoded tag would leak through unchallenged on any
+       page that intentionally omits one (e.g. 404) — `useHead`'s empty
+       `link: []` doesn't evict a tag it never competed with. -->
 
-  <!-- Icons & manifest -->
-  <link rel="icon" type="image/png" href="/favicon.png" />
-  <link rel="apple-touch-icon" href="/favicon.png" />
+  <!-- Icons & manifest. Sized variants generated from /favicon.png (1254x1254,
+       kept only as the Organization.logo source below — schema.org wants a
+       high-res logo, fetched out-of-band, so it doesn't cost page weight). -->
+  <link rel="icon" type="image/png" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="manifest" href="/site.webmanifest" />
 
   <!-- Open Graph -->
@@ -29,7 +32,7 @@
   <meta property="og:title" content="SRVJ — Free Online Diagram Editor &amp; Whiteboard" />
   <meta property="og:description"
     content="SRVJ is a free online diagram editor and whiteboard. Flowcharts, ERDs, mind maps and sticky notes on one infinite canvas — no download." />
-  <meta property="og:url" content="https://srvj.elrefai.me/" />
+  <!-- No static og:url either — same reasoning as the canonical tag above. -->
   <meta property="og:image" content="https://srvj.elrefai.me/og-image.svg" />
   <meta property="og:image:type" content="image/svg+xml" />
   <meta property="og:image:width" content="1200" />
@@ -96,11 +99,11 @@
   }
   </script>
 
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Architects+Daughter&family=Inter:wght@400;500;600;700&display=swap"
-    rel="stylesheet" />
+  <!-- Home renders its own marketing typefaces (see `HomeView.vue`). Inter +
+       Architects Daughter are the app-shell fonts (base UI + sketch mode) and
+       are loaded only by the signed-in surface via `useAppFonts()`, so Home
+       — the one indexed, ranking-critical page — doesn't pay for fonts it
+       never renders. -->
 </head>
 
 <body>

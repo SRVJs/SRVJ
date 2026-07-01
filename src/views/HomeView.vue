@@ -1051,8 +1051,10 @@ onBeforeUnmount(() => {
               "
             >
               <img
-                src="/favicon.png"
+                src="/logo-mark.png"
                 alt="SRVJ"
+                width="46"
+                height="38"
                 style="height: 38px; width: 46px; border-radius: 9px"
               />
             </a>
@@ -1077,7 +1079,6 @@ onBeforeUnmount(() => {
             <div style="display: flex; flex-direction: column; gap: 11px">
               <a href="#features" class="lp-footlink">Features</a>
               <a href="#usecases" class="lp-footlink">Use cases</a>
-              <a href="#compare" class="lp-footlink">Compare</a>
             </div>
           </div>
           <div>

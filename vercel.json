@@ -4,6 +4,18 @@
     { "source": "/gh", "destination": "https://github.com/elrefai99", "permanent": true }
   ],
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    { "source": "/el/board/:id", "destination": "/index.html" },
+    { "source": "/app/invite/:token*", "destination": "/index.html" },
+    { "source": "/app/reset-password/:token*", "destination": "/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "geolocation=(), camera=(), microphone=()" }
+      ]
+    }
   ]
 }
